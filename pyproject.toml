@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=64"]
+
+[project]
+name = "culsans"
+version = "0.1.0"
+authors = [
+    {name = "Ilya Egorov", email = "0x42005e1f@gmail.com"},
+]
+description = "Thread-safe async-aware queue for Python"
+readme = {file = "README.rst", content-type = "text/x-rst"}
+license = {file = "LICENSE"}
+requires-python = ">=3.9"
+dependencies = [
+    "aiologic>=0.9.0"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: Zero-Clause BSD (0BSD)",
+    "Intended Audience :: Developers",
+    "Typing :: Typed",
+    "Framework :: AsyncIO",
+    "Framework :: Trio",
+    "Framework :: AnyIO",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Source = "https://github.com/x42005e1f/culsans"
+
+[tool.black]
+line-length = 79
