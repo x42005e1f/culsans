@@ -49,6 +49,8 @@ T = TypeVar("T")
 
 
 class BaseQueue(Protocol[T]):
+    __slots__ = ()
+
     def qsize(self) -> int: ...
 
     def empty(self) -> bool: ...
@@ -77,6 +79,8 @@ class BaseQueue(Protocol[T]):
 
 
 class SyncQueue(BaseQueue[T], Protocol[T]):
+    __slots__ = ()
+
     def put(
         self,
         item: T,
@@ -92,6 +96,8 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
 
 
 class AsyncQueue(BaseQueue[T], Protocol[T]):
+    __slots__ = ()
+
     async def put(self, item: T) -> None: ...
 
     async def get(self) -> T: ...
