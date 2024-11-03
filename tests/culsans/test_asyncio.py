@@ -2,70 +2,14 @@
 
 import asyncio
 import unittest
-from types import GenericAlias
 
-
-def tearDownModule():
-    asyncio.set_event_loop_policy(None)
+import culsans
 
 
 class QueueBasicTests(unittest.IsolatedAsyncioTestCase):
 
-    async def _test_repr_or_str(self, fn, expect_id):
-        """Test Queue's repr or str.
-
-        fn is repr or str. expect_id is True if we expect the Queue's id to
-        appear in fn(Queue()).
-        """
-        q = asyncio.Queue()
-        self.assertTrue(fn(q).startswith('<Queue'), fn(q))
-        id_is_present = hex(id(q)) in fn(q)
-        self.assertEqual(expect_id, id_is_present)
-
-        # getters
-        q = asyncio.Queue()
-        async with asyncio.TaskGroup() as tg:
-            # Start a task that waits to get.
-            getter = tg.create_task(q.get())
-            # Let it start waiting.
-            await asyncio.sleep(0)
-            self.assertTrue('_getters[1]' in fn(q))
-            # resume q.get coroutine to finish generator
-            q.put_nowait(0)
-
-        self.assertEqual(0, await getter)
-
-        # putters
-        q = asyncio.Queue(maxsize=1)
-        async with asyncio.TaskGroup() as tg:
-            q.put_nowait(1)
-            # Start a task that waits to put.
-            putter = tg.create_task(q.put(2))
-            # Let it start waiting.
-            await asyncio.sleep(0)
-            self.assertTrue('_putters[1]' in fn(q))
-            # resume q.put coroutine to finish generator
-            q.get_nowait()
-
-        self.assertTrue(putter.done())
-
-        q = asyncio.Queue()
-        q.put_nowait(1)
-        self.assertTrue('_queue=[1]' in fn(q))
-
-    async def test_repr(self):
-        await self._test_repr_or_str(repr, True)
-
-    async def test_str(self):
-        await self._test_repr_or_str(str, False)
-
-    def test_generic_alias(self):
-        q = asyncio.Queue[int]
-        self.assertEqual(q.__args__, (int,))
-        self.assertIsInstance(q, GenericAlias)
-
     async def test_empty(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
         self.assertTrue(q.empty())
         await q.put(1)
         self.assertFalse(q.empty())
@@ -73,15 +17,15 @@ class QueueBasicTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(q.empty())
 
     async def test_full(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
         self.assertFalse(q.full())
 
-        q = asyncio.Queue(maxsize=1)
+        q = culsans.Queue(maxsize=1).async_q
         await q.put(1)
         self.assertTrue(q.full())
 
     async def test_order(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
         for i in [1, 3, 2]:
             await q.put(i)
 
@@ -89,7 +33,7 @@ class QueueBasicTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([1, 3, 2], items)
 
     async def test_maxsize(self):
-        q = asyncio.Queue(maxsize=2)
+        q = culsans.Queue(maxsize=2).async_q
         self.assertEqual(2, q.maxsize)
         have_been_put = []
 
@@ -120,27 +64,26 @@ class QueueBasicTests(unittest.IsolatedAsyncioTestCase):
 class QueueGetTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_blocking_get(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
         q.put_nowait(1)
 
         self.assertEqual(1, await q.get())
 
     async def test_get_with_putters(self):
-        loop = asyncio.get_running_loop()
-
-        q = asyncio.Queue(1)
+        q = culsans.Queue(1).async_q
         await q.put(1)
 
-        waiter = loop.create_future()
-        q._putters.append(waiter)
+        waiter = asyncio.create_task(q.put(2))
+        await asyncio.sleep(0)
 
         self.assertEqual(1, await q.get())
+        await asyncio.sleep(0)
         self.assertTrue(waiter.done())
         self.assertIsNone(waiter.result())
 
     async def test_blocking_get_wait(self):
         loop = asyncio.get_running_loop()
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
         started = asyncio.Event()
         finished = False
 
@@ -160,16 +103,16 @@ class QueueGetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, res)
 
     def test_nonblocking_get(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
         q.put_nowait(1)
         self.assertEqual(1, q.get_nowait())
 
     def test_nonblocking_get_exception(self):
-        q = asyncio.Queue()
-        self.assertRaises(asyncio.QueueEmpty, q.get_nowait)
+        q = culsans.Queue().async_q
+        self.assertRaises(culsans.AsyncQueueEmpty, q.get_nowait)
 
     async def test_get_cancelled_race(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
 
         t1 = asyncio.create_task(q.get())
         t2 = asyncio.create_task(q.get())
@@ -183,7 +126,7 @@ class QueueGetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual('a', await t2)
 
     async def test_get_with_waiting_putters(self):
-        q = asyncio.Queue(maxsize=1)
+        q = culsans.Queue(maxsize=1).async_q
         asyncio.create_task(q.put('a'))
         asyncio.create_task(q.put('b'))
         self.assertEqual(await q.get(), 'a')
@@ -200,31 +143,31 @@ class QueueGetTests(unittest.IsolatedAsyncioTestCase):
 
         producer_num_items = 5
 
-        q = asyncio.Queue(1)
+        q = culsans.Queue(1).async_q
         async with asyncio.TaskGroup() as tg:
             tg.create_task(producer(q, producer_num_items))
             tg.create_task(consumer(q, producer_num_items))
 
     async def test_cancelled_getters_not_being_held_in_self_getters(self):
-        queue = asyncio.Queue(maxsize=5)
+        queue = culsans.Queue(maxsize=5).async_q
 
         with self.assertRaises(TimeoutError):
             await asyncio.wait_for(queue.get(), 0.1)
 
-        self.assertEqual(len(queue._getters), 0)
+        self.assertEqual(queue.wrapped._not_empty.waiting, 0)
 
 
 class QueuePutTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_blocking_put(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
 
         # No maxsize, won't block.
         await q.put(1)
         self.assertEqual(1, await q.get())
 
     async def test_blocking_put_wait(self):
-        q = asyncio.Queue(maxsize=1)
+        q = culsans.Queue(maxsize=1).async_q
         started = asyncio.Event()
         finished = False
 
@@ -244,12 +187,12 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(finished)
 
     def test_nonblocking_put(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
         q.put_nowait(1)
         self.assertEqual(1, q.get_nowait())
 
     async def test_get_cancel_drop_one_pending_reader(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
 
         reader = asyncio.create_task(q.get())
 
@@ -271,7 +214,7 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, result)
 
     async def test_get_cancel_drop_many_pending_readers(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
 
         async with asyncio.TaskGroup() as tg:
             reader1 = tg.create_task(q.get())
@@ -293,7 +236,7 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({reader2.result(), reader3.result()}, {1, 2})
 
     async def test_put_cancel_drop(self):
-        q = asyncio.Queue(1)
+        q = culsans.Queue(1).async_q
 
         q.put_nowait(1)
 
@@ -317,25 +260,25 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(q.qsize(), 0)
 
     def test_nonblocking_put_exception(self):
-        q = asyncio.Queue(maxsize=1, )
+        q = culsans.Queue(maxsize=1, ).async_q
         q.put_nowait(1)
-        self.assertRaises(asyncio.QueueFull, q.put_nowait, 2)
+        self.assertRaises(culsans.AsyncQueueFull, q.put_nowait, 2)
 
     async def test_float_maxsize(self):
-        q = asyncio.Queue(maxsize=1.3, )
+        q = culsans.Queue(maxsize=1.3, ).async_q
         q.put_nowait(1)
         q.put_nowait(2)
         self.assertTrue(q.full())
-        self.assertRaises(asyncio.QueueFull, q.put_nowait, 3)
+        self.assertRaises(culsans.AsyncQueueFull, q.put_nowait, 3)
 
-        q = asyncio.Queue(maxsize=1.3, )
+        q = culsans.Queue(maxsize=1.3, ).async_q
 
         await q.put(1)
         await q.put(2)
         self.assertTrue(q.full())
 
     async def test_put_cancelled(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
 
         async def queue_put():
             await q.put(1)
@@ -348,7 +291,7 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(t.result())
 
     async def test_put_cancelled_race(self):
-        q = asyncio.Queue(maxsize=1)
+        q = culsans.Queue(maxsize=1).async_q
 
         put_a = asyncio.create_task(q.put('a'))
         put_b = asyncio.create_task(q.put('b'))
@@ -368,14 +311,14 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
         await put_b
 
     async def test_put_with_waiting_getters(self):
-        q = asyncio.Queue()
+        q = culsans.Queue().async_q
         t = asyncio.create_task(q.get())
         await asyncio.sleep(0)
         await q.put('a')
         self.assertEqual(await t, 'a')
 
     async def test_why_are_putters_waiting(self):
-        queue = asyncio.Queue(2)
+        queue = culsans.Queue(2).async_q
 
         async def putter(item):
             await queue.put(item)
@@ -395,7 +338,7 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_cancelled_puts_not_being_held_in_self_putters(self):
         # Full queue.
-        queue = asyncio.Queue(maxsize=1)
+        queue = culsans.Queue(maxsize=1).async_q
         queue.put_nowait(1)
 
         # Task waiting for space to put an item in the queue.
@@ -404,15 +347,15 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
 
         # Check that the putter is correctly removed from queue._putters when
         # the task is canceled.
-        self.assertEqual(len(queue._putters), 1)
+        self.assertEqual(queue.wrapped._not_full.waiting, 1)
         put_task.cancel()
         with self.assertRaises(asyncio.CancelledError):
             await put_task
-        self.assertEqual(len(queue._putters), 0)
+        self.assertEqual(queue.wrapped._not_full.waiting, 0)
 
     async def test_cancelled_put_silence_value_error_exception(self):
         # Full Queue.
-        queue = asyncio.Queue(1)
+        queue = culsans.Queue(1).async_q
         queue.put_nowait(1)
 
         # Task waiting for space to put a item in the queue.
@@ -435,7 +378,7 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
 class LifoQueueTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_order(self):
-        q = asyncio.LifoQueue()
+        q = culsans.LifoQueue().async_q
         for i in [1, 3, 2]:
             await q.put(i)
 
@@ -446,7 +389,7 @@ class LifoQueueTests(unittest.IsolatedAsyncioTestCase):
 class PriorityQueueTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_order(self):
-        q = asyncio.PriorityQueue()
+        q = culsans.PriorityQueue().async_q
         for i in [1, 3, 2]:
             await q.put(i)
 
@@ -459,11 +402,11 @@ class _QueueJoinTestMixin:
     q_class = None
 
     def test_task_done_underflow(self):
-        q = self.q_class()
+        q = self.q_class().async_q
         self.assertRaises(ValueError, q.task_done)
 
     async def test_task_done(self):
-        q = self.q_class()
+        q = self.q_class().async_q
         for i in range(100):
             q.put_nowait(i)
 
@@ -494,7 +437,7 @@ class _QueueJoinTestMixin:
                 q.put_nowait(0)
 
     async def test_join_empty_queue(self):
-        q = self.q_class()
+        q = self.q_class().async_q
 
         # Test that a queue join()s successfully, and before anything else
         # (done twice for insurance).
@@ -502,42 +445,30 @@ class _QueueJoinTestMixin:
         await q.join()
         await q.join()
 
-    async def test_format(self):
-        q = self.q_class()
-        self.assertEqual(q._format(), 'maxsize=0')
-
-        q._unfinished_tasks = 2
-        self.assertEqual(q._format(), 'maxsize=0 tasks=2')
-
 
 class QueueJoinTests(_QueueJoinTestMixin, unittest.IsolatedAsyncioTestCase):
-    q_class = asyncio.Queue
+    q_class = culsans.Queue
 
 
 class LifoQueueJoinTests(_QueueJoinTestMixin, unittest.IsolatedAsyncioTestCase):
-    q_class = asyncio.LifoQueue
+    q_class = culsans.LifoQueue
 
 
 class PriorityQueueJoinTests(_QueueJoinTestMixin, unittest.IsolatedAsyncioTestCase):
-    q_class = asyncio.PriorityQueue
+    q_class = culsans.PriorityQueue
 
 
 class _QueueShutdownTestMixin:
     q_class = None
 
     def assertRaisesShutdown(self, msg="Didn't appear to shut-down queue"):
-        return self.assertRaises(asyncio.QueueShutDown, msg=msg)
-
-    async def test_format(self):
-        q = self.q_class()
-        q.shutdown()
-        self.assertEqual(q._format(), 'maxsize=0 shutdown')
+        return self.assertRaises(culsans.AsyncQueueShutDown, msg=msg)
 
     async def test_shutdown_empty(self):
         # Test shutting down an empty queue
 
         # Setup empty queue, and join() and get() tasks
-        q = self.q_class()
+        q = self.q_class().async_q
         loop = asyncio.get_running_loop()
         get_task = loop.create_task(q.get())
         await asyncio.sleep(0)  # want get task pending before shutdown
@@ -571,7 +502,7 @@ class _QueueShutdownTestMixin:
         # Test shutting down a non-empty queue
 
         # Setup full queue with 1 item, and join() and put() tasks
-        q = self.q_class(maxsize=1)
+        q = self.q_class(maxsize=1).async_q
         loop = asyncio.get_running_loop()
 
         q.put_nowait("data")
@@ -627,7 +558,7 @@ class _QueueShutdownTestMixin:
         # Test immediately shutting down a queue
 
         # Setup queue with 1 item, and a join() task
-        q = self.q_class()
+        q = self.q_class().async_q
         loop = asyncio.get_running_loop()
         q.put_nowait("data")
         join_task = loop.create_task(q.join())
@@ -663,7 +594,7 @@ class _QueueShutdownTestMixin:
         # Test immediately shutting down a queue with unfinished tasks
 
         # Setup queue with 2 items (1 retrieved), and a join() task
-        q = self.q_class()
+        q = self.q_class().async_q
         loop = asyncio.get_running_loop()
         q.put_nowait("data")
         q.put_nowait("data")
@@ -706,19 +637,19 @@ class _QueueShutdownTestMixin:
 class QueueShutdownTests(
     _QueueShutdownTestMixin, unittest.IsolatedAsyncioTestCase
 ):
-    q_class = asyncio.Queue
+    q_class = culsans.Queue
 
 
 class LifoQueueShutdownTests(
     _QueueShutdownTestMixin, unittest.IsolatedAsyncioTestCase
 ):
-    q_class = asyncio.LifoQueue
+    q_class = culsans.LifoQueue
 
 
 class PriorityQueueShutdownTests(
     _QueueShutdownTestMixin, unittest.IsolatedAsyncioTestCase
 ):
-    q_class = asyncio.PriorityQueue
+    q_class = culsans.PriorityQueue
 
 
 if __name__ == '__main__':
