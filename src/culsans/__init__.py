@@ -214,7 +214,15 @@ class Queue(Generic[T]):
 
     @maxsize.setter
     def maxsize(self, value: int) -> None:
-        self._maxsize = value
+        with self._mutex:
+            maxsize = self._maxsize
+
+            if value <= 0:
+                self._not_full.notify_all()
+            elif value > maxsize:
+                self._not_full.notify(value - maxsize)
+
+            self._maxsize = value
 
 
 class LifoQueue(Queue[T]):
@@ -551,7 +559,17 @@ class SyncQueueProxy(SyncQueue[T]):
 
     @maxsize.setter
     def maxsize(self, value: int) -> None:
-        self.wrapped._maxsize = value
+        wrapped = self.wrapped
+
+        with wrapped._mutex:
+            maxsize = wrapped._maxsize
+
+            if value <= 0:
+                wrapped._not_full.notify_all()
+            elif value > maxsize:
+                wrapped._not_full.notify(value - maxsize)
+
+            wrapped._maxsize = value
 
 
 class AsyncQueueProxy(AsyncQueue[T]):
@@ -791,4 +809,14 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
     @maxsize.setter
     def maxsize(self, value: int) -> None:
-        self.wrapped._maxsize = value
+        wrapped = self.wrapped
+
+        with wrapped._mutex:
+            maxsize = wrapped._maxsize
+
+            if value <= 0:
+                wrapped._not_full.notify_all()
+            elif value > maxsize:
+                wrapped._not_full.notify(value - maxsize)
+
+            wrapped._maxsize = value
