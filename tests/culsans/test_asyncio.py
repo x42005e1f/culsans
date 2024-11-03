@@ -144,14 +144,15 @@ class QueueGetTests(unittest.IsolatedAsyncioTestCase):
         producer_num_items = 5
 
         q = culsans.Queue(1).async_q
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(producer(q, producer_num_items))
-            tg.create_task(consumer(q, producer_num_items))
+        await asyncio.gather(
+            producer(q, producer_num_items),
+            consumer(q, producer_num_items),
+        )
 
     async def test_cancelled_getters_not_being_held_in_self_getters(self):
         queue = culsans.Queue(maxsize=5).async_q
 
-        with self.assertRaises(TimeoutError):
+        with self.assertRaises(asyncio.TimeoutError):
             await asyncio.wait_for(queue.get(), 0.1)
 
         self.assertEqual(queue.wrapped._not_empty.waiting, 0)
@@ -216,21 +217,20 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
     async def test_get_cancel_drop_many_pending_readers(self):
         q = culsans.Queue().async_q
 
-        async with asyncio.TaskGroup() as tg:
-            reader1 = tg.create_task(q.get())
-            reader2 = tg.create_task(q.get())
-            reader3 = tg.create_task(q.get())
+        reader1 = asyncio.create_task(q.get())
+        reader2 = asyncio.create_task(q.get())
+        reader3 = asyncio.create_task(q.get())
 
-            await asyncio.sleep(0)
+        await asyncio.sleep(0)
 
-            q.put_nowait(1)
-            q.put_nowait(2)
-            reader1.cancel()
+        q.put_nowait(1)
+        q.put_nowait(2)
+        reader1.cancel()
 
-            with self.assertRaises(asyncio.CancelledError):
-                await reader1
+        with self.assertRaises(asyncio.CancelledError):
+            await reader1
 
-            await reader3
+        await reader3
 
         # It is undefined in which order concurrent readers receive results.
         self.assertEqual({reader2.result(), reader3.result()}, {1, 2})
@@ -329,12 +329,13 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
             for _ in range(num):
                 queue.get_nowait()
 
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(getter())
-            tg.create_task(putter(0))
-            tg.create_task(putter(1))
-            tg.create_task(putter(2))
-            tg.create_task(putter(3))
+        await asyncio.gather(
+            getter(),
+            putter(0),
+            putter(1),
+            putter(2),
+            putter(3),
+        )
 
     async def test_cancelled_puts_not_being_held_in_self_putters(self):
         # Full queue.
@@ -424,17 +425,17 @@ class _QueueJoinTestMixin:
                 accumulator += item
                 q.task_done()
 
-        async with asyncio.TaskGroup() as tg:
-            tasks = [tg.create_task(worker())
-                     for index in range(2)]
+        tasks = [asyncio.create_task(worker())
+                 for index in range(2)]
 
-            await q.join()
-            self.assertEqual(sum(range(100)), accumulator)
+        await q.join()
+        self.assertEqual(sum(range(100)), accumulator)
 
-            # close running generators
-            running = False
-            for i in range(len(tasks)):
-                q.put_nowait(0)
+        # close running generators
+        running = False
+        for i in range(len(tasks)):
+            q.put_nowait(0)
+        await asyncio.wait(tasks)
 
     async def test_join_empty_queue(self):
         q = self.q_class().async_q
