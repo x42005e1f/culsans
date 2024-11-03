@@ -72,6 +72,9 @@ class BaseQueue(Protocol[T]):
     @property
     def maxsize(self) -> int: ...
 
+    @maxsize.setter
+    def maxsize(self, value: int) -> None: ...
+
 
 class SyncQueue(BaseQueue[T], Protocol[T]):
     def put(
@@ -209,6 +212,10 @@ class Queue(Generic[T]):
     def maxsize(self) -> int:
         return self._maxsize
 
+    @maxsize.setter
+    def maxsize(self, value: int) -> None:
+        self._maxsize = value
+
 
 class LifoQueue(Queue[T]):
     """A subclass of Queue; retrieves most recently added entries first."""
@@ -323,12 +330,12 @@ class SyncQueueProxy(SyncQueue[T]):
             if wrapped._is_shutdown:
                 raise SyncQueueShutDown
 
-            if wrapped._maxsize > 0:
+            if 0 < wrapped._maxsize:
                 if not block:
-                    if wrapped._qsize() >= wrapped._maxsize:
+                    if 0 < wrapped._maxsize <= wrapped._qsize():
                         raise SyncQueueFull
                 elif timeout is None:
-                    while wrapped._qsize() >= wrapped._maxsize:
+                    while 0 < wrapped._maxsize <= wrapped._qsize():
                         wrapped._not_full.wait()
 
                         if wrapped._is_shutdown:
@@ -338,7 +345,7 @@ class SyncQueueProxy(SyncQueue[T]):
                 else:
                     endtime = time.monotonic() + timeout
 
-                    while wrapped._qsize() >= wrapped._maxsize:
+                    while 0 < wrapped._maxsize <= wrapped._qsize():
                         remaining = endtime - time.monotonic()
 
                         if remaining <= 0:
@@ -369,7 +376,7 @@ class SyncQueueProxy(SyncQueue[T]):
             if wrapped._is_shutdown:
                 raise SyncQueueShutDown
 
-            if wrapped._maxsize > 0 and wrapped._qsize() >= wrapped._maxsize:
+            if 0 < wrapped._maxsize <= wrapped._qsize():
                 raise SyncQueueFull
 
             wrapped._put(item)
@@ -542,6 +549,10 @@ class SyncQueueProxy(SyncQueue[T]):
     def maxsize(self) -> int:
         return self.wrapped._maxsize
 
+    @maxsize.setter
+    def maxsize(self, value: int) -> None:
+        self.wrapped._maxsize = value
+
 
 class AsyncQueueProxy(AsyncQueue[T]):
     __slots__ = ("wrapped",)
@@ -603,8 +614,8 @@ class AsyncQueueProxy(AsyncQueue[T]):
             if wrapped._is_shutdown:
                 raise AsyncQueueShutDown
 
-            if wrapped._maxsize > 0:
-                while wrapped._qsize() >= wrapped._maxsize:
+            if 0 < wrapped._maxsize:
+                while 0 < wrapped._maxsize <= wrapped._qsize():
                     await wrapped._not_full
 
                     if wrapped._is_shutdown:
@@ -630,7 +641,7 @@ class AsyncQueueProxy(AsyncQueue[T]):
             if wrapped._is_shutdown:
                 raise AsyncQueueShutDown
 
-            if wrapped._maxsize > 0 and wrapped._qsize() >= wrapped._maxsize:
+            if 0 < wrapped._maxsize <= wrapped._qsize():
                 raise AsyncQueueFull
 
             wrapped._put(item)
@@ -777,3 +788,7 @@ class AsyncQueueProxy(AsyncQueue[T]):
     @property
     def maxsize(self) -> int:
         return self.wrapped._maxsize
+
+    @maxsize.setter
+    def maxsize(self, value: int) -> None:
+        self.wrapped._maxsize = value
