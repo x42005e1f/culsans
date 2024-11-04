@@ -32,6 +32,7 @@ from aiologic.lowlevel import (  # type: ignore[import-untyped]
     AsyncEvent,
     GreenEvent,
     checkpoint,
+    green_checkpoint,
 )
 from aiologic.lowlevel.thread import (  # type: ignore[import-untyped]
     allocate_lock,
@@ -480,6 +481,8 @@ class SyncQueueProxy(SyncQueue[T]):
 
         wrapped = self.wrapped
 
+        rescheduled = False
+
         with wrapped._mutex:
             if wrapped._is_shutdown:
                 raise SyncQueueShutDown
@@ -494,6 +497,8 @@ class SyncQueueProxy(SyncQueue[T]):
 
                         if wrapped._is_shutdown:
                             raise SyncQueueShutDown
+
+                        rescheduled = True
                 elif timeout < 0:
                     raise ValueError("'timeout' must be a non-negative number")
                 else:
@@ -510,10 +515,15 @@ class SyncQueueProxy(SyncQueue[T]):
                         if wrapped._is_shutdown:
                             raise SyncQueueShutDown
 
+                        rescheduled = True
+
             wrapped._put(item)
 
             wrapped._unfinished_tasks += 1
             wrapped._not_empty.notify()
+
+        if not rescheduled:
+            green_checkpoint()
 
     def put_nowait(self, item: T) -> None:
         """Put an item into the queue without blocking.
@@ -555,6 +565,8 @@ class SyncQueueProxy(SyncQueue[T]):
 
         wrapped = self.wrapped
 
+        rescheduled = False
+
         with wrapped._mutex:
             if wrapped._is_shutdown and not wrapped._qsize():
                 raise SyncQueueShutDown
@@ -568,6 +580,8 @@ class SyncQueueProxy(SyncQueue[T]):
 
                     if wrapped._is_shutdown and not wrapped._qsize():
                         raise SyncQueueShutDown
+
+                    rescheduled = True
             elif timeout < 0:
                 raise ValueError("'timeout' must be a non-negative number")
             else:
@@ -584,9 +598,14 @@ class SyncQueueProxy(SyncQueue[T]):
                     if wrapped._is_shutdown and not wrapped._qsize():
                         raise SyncQueueShutDown
 
+                    rescheduled = True
+
             item = wrapped._get()
 
             wrapped._not_full.notify()
+
+        if not rescheduled:
+            green_checkpoint()
 
         return item
 
@@ -657,9 +676,16 @@ class SyncQueueProxy(SyncQueue[T]):
 
         wrapped = self.wrapped
 
+        rescheduled = False
+
         with wrapped._mutex:
             while wrapped._unfinished_tasks:
                 wrapped._all_tasks_done.wait()
+
+                rescheduled = True
+
+        if not rescheduled:
+            green_checkpoint()
 
     def shutdown(self, immediate: bool = False) -> None:
         """Shut-down the queue, making queue gets and puts raise QueueShutDown.
