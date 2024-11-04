@@ -156,12 +156,11 @@ Performance
 ===========
 
 Being built on the ``aiologic`` package, the ``culsans`` library has
-speed advantages.
-In `sync -> async tests <https://github.com/aio-libs/janus/issues/679>`_,
-``culsans.Queue`` is typically 4 times faster than ``janus.Queue`` on CPython,
-and 8 times faster on PyPy. However, if your application is performance
-sensitive and you do not need API compatibility, try ``aiologic`` queues.
-They are 7 times faster and 24 times faster in the same tests.
+speed advantages. In sync -> async benchmarks, ``culsans.Queue`` is typically 5
+times faster than ``janus.Queue`` on CPython 3.12, and 12 times faster on PyPy
+3.10. However, if your application is performance sensitive and you do not need
+API compatibility, try ``aiologic`` queues. They are 7 times faster and 24
+times faster in the same benchmarks.
 
 Communication channels
 ======================
