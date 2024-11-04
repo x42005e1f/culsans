@@ -1,5 +1,6 @@
 graft src
 graft tests
+graft benches
 
 prune **/__pycache__
 
