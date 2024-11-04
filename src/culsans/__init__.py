@@ -25,12 +25,10 @@ from heapq import heappop, heappush
 from queue import Empty as SyncQueueEmpty, Full as SyncQueueFull
 from typing import Generic, Optional, Protocol, TypeVar
 from asyncio import QueueEmpty as AsyncQueueEmpty, QueueFull as AsyncQueueFull
-from itertools import count
 from collections import deque
 
+from aiologic import Condition  # type: ignore[import-untyped]
 from aiologic.lowlevel import (  # type: ignore[import-untyped]
-    AsyncEvent,
-    GreenEvent,
     checkpoint,
     green_checkpoint,
 )
@@ -114,138 +112,6 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
     async def join(self) -> None: ...
 
 
-class MixedCondition:
-    __slots__ = (
-        "__waiters",
-        "__timer",
-        "lock",
-    )
-
-    def __init__(self, lock):
-        self.__waiters = deque()
-        self.__timer = count().__next__
-
-        self.lock = lock
-
-    def __await__(self):
-        lock = self.lock
-        waiters = self.__waiters
-        waiters.append(
-            token := (
-                event := AsyncEvent(),
-                self.__timer(),
-            )
-        )
-
-        success = False
-
-        try:
-            lock.release()
-
-            try:
-                success = yield from event.__await__()
-            finally:
-                lock.acquire()
-        finally:
-            if success or event.set():
-                try:
-                    waiters.remove(token)
-                except ValueError:
-                    pass
-            else:
-                self.notify()
-
-        return success
-
-    def wait(self, timeout=None):
-        lock = self.lock
-        waiters = self.__waiters
-        waiters.append(
-            token := (
-                event := GreenEvent(),
-                self.__timer(),
-            )
-        )
-
-        success = False
-
-        try:
-            lock.release()
-
-            try:
-                success = event.wait(timeout)
-            finally:
-                lock.acquire()
-        finally:
-            if success or event.set():
-                try:
-                    waiters.remove(token)
-                except ValueError:
-                    pass
-            else:
-                self.notify()
-
-        return success
-
-    def notify(self, count=1):
-        waiters = self.__waiters
-
-        deadline = self.__timer()
-        notified = 0
-
-        while waiters and notified != count:
-            try:
-                token = waiters[0]
-            except IndexError:
-                break
-            else:
-                event, time = token
-
-                if time <= deadline:
-                    if event.set():
-                        notified += 1
-
-                    try:
-                        waiters.remove(token)
-                    except ValueError:
-                        pass
-                else:
-                    break
-
-        return notified
-
-    def notify_all(self):
-        waiters = self.__waiters
-
-        deadline = self.__timer()
-        notified = 0
-
-        while waiters:
-            try:
-                token = waiters[0]
-            except IndexError:
-                break
-            else:
-                event, time = token
-
-                if time <= deadline:
-                    if event.set():
-                        notified += 1
-
-                    try:
-                        waiters.remove(token)
-                    except ValueError:
-                        pass
-                else:
-                    break
-
-        return notified
-
-    @property
-    def waiting(self):
-        return len(self.__waiters)
-
-
 class Queue(Generic[T]):
     """Create a queue object with a given maximum size.
 
@@ -278,15 +144,15 @@ class Queue(Generic[T]):
 
         # Notify not_empty whenever an item is added to the queue; a
         # thread waiting to get is notified then.
-        self._not_empty = MixedCondition(mutex)
+        self._not_empty = Condition(mutex)
 
         # Notify not_full whenever an item is removed from the queue;
         # a thread waiting to put is notified then.
-        self._not_full = MixedCondition(mutex)
+        self._not_full = Condition(mutex)
 
         # Notify all_tasks_done whenever the number of unfinished tasks
         # drops to zero; thread waiting to join() is notified to resume
-        self._all_tasks_done = MixedCondition(mutex)
+        self._all_tasks_done = Condition(mutex)
         self._unfinished_tasks = 0
 
         # Queue shutdown state
