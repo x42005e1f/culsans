@@ -25,9 +25,17 @@ from heapq import heappop, heappush
 from queue import Empty as SyncQueueEmpty, Full as SyncQueueFull
 from typing import Generic, Optional, Protocol, TypeVar
 from asyncio import QueueEmpty as AsyncQueueEmpty, QueueFull as AsyncQueueFull
+from itertools import count
 from collections import deque
 
-from aiologic import Condition, PLock  # type: ignore[import-untyped]
+from aiologic.lowlevel import (  # type: ignore[import-untyped]
+    AsyncEvent,
+    GreenEvent,
+    checkpoint,
+)
+from aiologic.lowlevel.thread import (  # type: ignore[import-untyped]
+    allocate_lock,
+)
 
 if sys.version_info >= (3, 13):
     from queue import ShutDown as SyncQueueShutDown
@@ -105,6 +113,138 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
     async def join(self) -> None: ...
 
 
+class MixedCondition:
+    __slots__ = (
+        "__waiters",
+        "__timer",
+        "lock",
+    )
+
+    def __init__(self, lock):
+        self.__waiters = deque()
+        self.__timer = count().__next__
+
+        self.lock = lock
+
+    def __await__(self):
+        lock = self.lock
+        waiters = self.__waiters
+        waiters.append(
+            token := (
+                event := AsyncEvent(),
+                self.__timer(),
+            )
+        )
+
+        success = False
+
+        try:
+            lock.release()
+
+            try:
+                success = yield from event.__await__()
+            finally:
+                lock.acquire()
+        finally:
+            if success or event.set():
+                try:
+                    waiters.remove(token)
+                except ValueError:
+                    pass
+            else:
+                self.notify()
+
+        return success
+
+    def wait(self, timeout=None):
+        lock = self.lock
+        waiters = self.__waiters
+        waiters.append(
+            token := (
+                event := GreenEvent(),
+                self.__timer(),
+            )
+        )
+
+        success = False
+
+        try:
+            lock.release()
+
+            try:
+                success = event.wait(timeout)
+            finally:
+                lock.acquire()
+        finally:
+            if success or event.set():
+                try:
+                    waiters.remove(token)
+                except ValueError:
+                    pass
+            else:
+                self.notify()
+
+        return success
+
+    def notify(self, count=1):
+        waiters = self.__waiters
+
+        deadline = self.__timer()
+        notified = 0
+
+        while waiters and notified != count:
+            try:
+                token = waiters[0]
+            except IndexError:
+                break
+            else:
+                event, time = token
+
+                if time <= deadline:
+                    if event.set():
+                        notified += 1
+
+                    try:
+                        waiters.remove(token)
+                    except ValueError:
+                        pass
+                else:
+                    break
+
+        return notified
+
+    def notify_all(self):
+        waiters = self.__waiters
+
+        deadline = self.__timer()
+        notified = 0
+
+        while waiters:
+            try:
+                token = waiters[0]
+            except IndexError:
+                break
+            else:
+                event, time = token
+
+                if time <= deadline:
+                    if event.set():
+                        notified += 1
+
+                    try:
+                        waiters.remove(token)
+                    except ValueError:
+                        pass
+                else:
+                    break
+
+        return notified
+
+    @property
+    def waiting(self):
+        return len(self.__waiters)
+
+
 class Queue(Generic[T]):
     """Create a queue object with a given maximum size.
 
@@ -133,19 +273,19 @@ class Queue(Generic[T]):
         # that acquire mutex must release it before returning. Mutex
         # is shared between the three conditions, so acquiring and
         # releasing the conditions also acquires and releases mutex.
-        self._mutex = mutex = PLock()
+        self._mutex = mutex = allocate_lock()
 
         # Notify not_empty whenever an item is added to the queue; a
         # thread waiting to get is notified then.
-        self._not_empty = Condition(mutex)
+        self._not_empty = MixedCondition(mutex)
 
         # Notify not_full whenever an item is removed from the queue;
         # a thread waiting to put is notified then.
-        self._not_full = Condition(mutex)
+        self._not_full = MixedCondition(mutex)
 
         # Notify all_tasks_done whenever the number of unfinished tasks
         # drops to zero; thread waiting to join() is notified to resume
-        self._all_tasks_done = Condition(mutex)
+        self._all_tasks_done = MixedCondition(mutex)
         self._unfinished_tasks = 0
 
         # Queue shutdown state
@@ -448,7 +588,7 @@ class SyncQueueProxy(SyncQueue[T]):
 
             wrapped._not_full.notify()
 
-            return item
+        return item
 
     def get_nowait(self) -> T:
         """Remove and return an item from the queue without blocking.
@@ -473,7 +613,7 @@ class SyncQueueProxy(SyncQueue[T]):
 
             wrapped._not_full.notify()
 
-            return item
+        return item
 
     def task_done(self) -> None:
         """Indicate that a formerly enqueued task is complete.
@@ -634,7 +774,9 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
         wrapped = self.wrapped
 
-        async with wrapped._mutex:
+        rescheduled = False
+
+        with wrapped._mutex:
             if wrapped._is_shutdown:
                 raise AsyncQueueShutDown
 
@@ -645,10 +787,15 @@ class AsyncQueueProxy(AsyncQueue[T]):
                     if wrapped._is_shutdown:
                         raise AsyncQueueShutDown
 
+                    rescheduled = True
+
             wrapped._put(item)
 
             wrapped._unfinished_tasks += 1
             wrapped._not_empty.notify()
+
+        if not rescheduled:
+            await checkpoint()
 
     def put_nowait(self, item: T) -> None:
         """Put an item into the queue without blocking.
@@ -684,7 +831,9 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
         wrapped = self.wrapped
 
-        async with wrapped._mutex:
+        rescheduled = False
+
+        with wrapped._mutex:
             if wrapped._is_shutdown and not wrapped._qsize():
                 raise AsyncQueueShutDown
 
@@ -694,11 +843,16 @@ class AsyncQueueProxy(AsyncQueue[T]):
                 if wrapped._is_shutdown and not wrapped._qsize():
                     raise AsyncQueueShutDown
 
+                rescheduled = True
+
             item = wrapped._get()
 
             wrapped._not_full.notify()
 
-            return item
+        if not rescheduled:
+            await checkpoint()
+
+        return item
 
     def get_nowait(self) -> T:
         """Remove and return an item from the queue without blocking.
@@ -723,7 +877,7 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
             wrapped._not_full.notify()
 
-            return item
+        return item
 
     def task_done(self) -> None:
         """Indicate that a formerly enqueued task is complete.
@@ -767,9 +921,16 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
         wrapped = self.wrapped
 
-        async with wrapped._mutex:
+        rescheduled = False
+
+        with wrapped._mutex:
             while wrapped._unfinished_tasks:
                 await wrapped._all_tasks_done
+
+                rescheduled = True
+
+        if not rescheduled:
+            await checkpoint()
 
     def shutdown(self, immediate: bool = False) -> None:
         """Shut-down the queue, making queue gets and puts raise QueueShutDown.
