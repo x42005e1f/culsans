@@ -66,19 +66,15 @@ class _TestQueueBase:
 
     def test_unfinished(self):
         queue = self.factory()
-
         assert queue.unfinished_tasks == 0
 
         queue.sync_q.put(1)
-
         assert queue.unfinished_tasks == 1
 
         queue.sync_q.get()
-
         assert queue.unfinished_tasks == 1
 
         queue.sync_q.task_done()
-
         assert queue.unfinished_tasks == 0
 
     def test_shutdown(self):
