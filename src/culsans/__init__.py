@@ -79,6 +79,9 @@ class BaseQueue(Protocol[T]):
     def is_shutdown(self) -> bool: ...
 
     @property
+    def closed(self) -> bool: ...
+
+    @property
     def maxsize(self) -> int: ...
 
     @maxsize.setter
@@ -126,6 +129,7 @@ class Queue(Generic[T]):
         "_all_tasks_done",
         "_unfinished_tasks",
         "_is_shutdown",
+        "_is_closing",
         "_maxsize",
         "data",
     )
@@ -157,6 +161,7 @@ class Queue(Generic[T]):
 
         # Queue shutdown state
         self._is_shutdown = False
+        self._is_closing = False
 
     def shutdown(self, immediate: bool = False) -> None:
         """Shut-down the queue, making queue gets and puts raise QueueShutDown.
@@ -185,6 +190,29 @@ class Queue(Generic[T]):
             # all getters need to re-check queue-empty to raise QueueShutDown
             self._not_empty.notify_all()
             self._not_full.notify_all()
+
+    def close(self) -> None:
+        with self._mutex:
+            self._is_closing = True
+
+            while self._qsize():
+                self._get()
+
+                if self._unfinished_tasks > 0:
+                    self._unfinished_tasks -= 1
+
+            # release all blocked threads in `join()`
+            self._all_tasks_done.notify_all()
+
+            # all getters need to re-check queue-empty to raise QueueShutDown
+            self._not_empty.notify_all()
+            self._not_full.notify_all()
+
+    async def wait_closed(self) -> None:
+        if not self._is_closing:
+            raise RuntimeError("Waiting for non-closed queue")
+
+        await checkpoint()
 
     # Override these methods to implement other queue organizations
     # (e.g. stack or priority queue).
@@ -220,6 +248,10 @@ class Queue(Generic[T]):
     @property
     def is_shutdown(self) -> bool:
         return self._is_shutdown
+
+    @property
+    def closed(self) -> bool:
+        return self._is_closing
 
     @property
     def maxsize(self) -> int:
@@ -350,8 +382,7 @@ class SyncQueueProxy(SyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
-            if wrapped._is_shutdown:
-                raise SyncQueueShutDown
+            self._check_closing()
 
             if 0 < wrapped._maxsize:
                 if not block:
@@ -361,8 +392,7 @@ class SyncQueueProxy(SyncQueue[T]):
                     while 0 < wrapped._maxsize <= wrapped._qsize():
                         wrapped._not_full.wait()
 
-                        if wrapped._is_shutdown:
-                            raise SyncQueueShutDown
+                        self._check_closing()
 
                         rescheduled = True
                 elif timeout < 0:
@@ -378,8 +408,7 @@ class SyncQueueProxy(SyncQueue[T]):
 
                         wrapped._not_full.wait(remaining)
 
-                        if wrapped._is_shutdown:
-                            raise SyncQueueShutDown
+                        self._check_closing()
 
                         rescheduled = True
 
@@ -403,8 +432,7 @@ class SyncQueueProxy(SyncQueue[T]):
         wrapped = self.wrapped
 
         with wrapped._mutex:
-            if wrapped._is_shutdown:
-                raise SyncQueueShutDown
+            self._check_closing()
 
             if 0 < wrapped._maxsize <= wrapped._qsize():
                 raise SyncQueueFull
@@ -434,8 +462,8 @@ class SyncQueueProxy(SyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
-            if wrapped._is_shutdown and not wrapped._qsize():
-                raise SyncQueueShutDown
+            if not wrapped._qsize():
+                self._check_closing()
 
             if not block:
                 if not wrapped._qsize():
@@ -444,8 +472,8 @@ class SyncQueueProxy(SyncQueue[T]):
                 while not wrapped._qsize():
                     wrapped._not_empty.wait()
 
-                    if wrapped._is_shutdown and not wrapped._qsize():
-                        raise SyncQueueShutDown
+                    if not wrapped._qsize():
+                        self._check_closing()
 
                     rescheduled = True
             elif timeout < 0:
@@ -461,8 +489,8 @@ class SyncQueueProxy(SyncQueue[T]):
 
                     wrapped._not_empty.wait(remaining)
 
-                    if wrapped._is_shutdown and not wrapped._qsize():
-                        raise SyncQueueShutDown
+                    if not wrapped._qsize():
+                        self._check_closing()
 
                     rescheduled = True
 
@@ -489,10 +517,9 @@ class SyncQueueProxy(SyncQueue[T]):
 
         with wrapped._mutex:
             if not wrapped._qsize():
-                if wrapped._is_shutdown:
-                    raise SyncQueueShutDown
-                else:
-                    raise SyncQueueEmpty
+                self._check_closing()
+
+                raise SyncQueueEmpty
 
             item = wrapped._get()
 
@@ -583,6 +610,15 @@ class SyncQueueProxy(SyncQueue[T]):
             wrapped._not_empty.notify_all()
             wrapped._not_full.notify_all()
 
+    def _check_closing(self) -> None:
+        wrapped = self.wrapped
+
+        if wrapped._is_closing:
+            raise RuntimeError("Operation on the closed queue is forbidden")
+
+        if wrapped._is_shutdown:
+            raise SyncQueueShutDown
+
     @property
     def unfinished_tasks(self) -> int:
         return self.wrapped._unfinished_tasks
@@ -590,6 +626,10 @@ class SyncQueueProxy(SyncQueue[T]):
     @property
     def is_shutdown(self) -> bool:
         return self.wrapped._is_shutdown
+
+    @property
+    def closed(self) -> bool:
+        return self.wrapped._is_closing
 
     @property
     def maxsize(self) -> int:
@@ -669,15 +709,13 @@ class AsyncQueueProxy(AsyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
-            if wrapped._is_shutdown:
-                raise AsyncQueueShutDown
+            self._check_closing()
 
             if 0 < wrapped._maxsize:
                 while 0 < wrapped._maxsize <= wrapped._qsize():
                     await wrapped._not_full
 
-                    if wrapped._is_shutdown:
-                        raise AsyncQueueShutDown
+                    self._check_closing()
 
                     rescheduled = True
 
@@ -701,8 +739,7 @@ class AsyncQueueProxy(AsyncQueue[T]):
         wrapped = self.wrapped
 
         with wrapped._mutex:
-            if wrapped._is_shutdown:
-                raise AsyncQueueShutDown
+            self._check_closing()
 
             if 0 < wrapped._maxsize <= wrapped._qsize():
                 raise AsyncQueueFull
@@ -726,14 +763,10 @@ class AsyncQueueProxy(AsyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
-            if wrapped._is_shutdown and not wrapped._qsize():
-                raise AsyncQueueShutDown
-
             while not wrapped._qsize():
-                await wrapped._not_empty
+                self._check_closing()
 
-                if wrapped._is_shutdown and not wrapped._qsize():
-                    raise AsyncQueueShutDown
+                await wrapped._not_empty
 
                 rescheduled = True
 
@@ -760,10 +793,9 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
         with wrapped._mutex:
             if not wrapped._qsize():
-                if wrapped._is_shutdown:
-                    raise AsyncQueueShutDown
-                else:
-                    raise AsyncQueueEmpty
+                self._check_closing()
+
+                raise AsyncQueueEmpty
 
             item = wrapped._get()
 
@@ -854,6 +886,15 @@ class AsyncQueueProxy(AsyncQueue[T]):
             wrapped._not_empty.notify_all()
             wrapped._not_full.notify_all()
 
+    def _check_closing(self) -> None:
+        wrapped = self.wrapped
+
+        if wrapped._is_closing:
+            raise RuntimeError("Operation on the closed queue is forbidden")
+
+        if wrapped._is_shutdown:
+            raise AsyncQueueShutDown
+
     @property
     def unfinished_tasks(self) -> int:
         return self.wrapped._unfinished_tasks
@@ -861,6 +902,10 @@ class AsyncQueueProxy(AsyncQueue[T]):
     @property
     def is_shutdown(self) -> bool:
         return self.wrapped._is_shutdown
+
+    @property
+    def closed(self) -> bool:
+        return self.wrapped._is_closing
 
     @property
     def maxsize(self) -> int:

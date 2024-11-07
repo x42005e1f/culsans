@@ -108,3 +108,67 @@ class TestMixedQueue:
                 loop.run_in_executor(None, sync_run, queue.sync_q),
                 async_run(queue.async_q),
             )
+
+    @pytest.mark.asyncio
+    async def test_closed(self):
+        queue = self.factory()
+
+        assert not queue.closed
+        assert not queue.async_q.closed
+        assert not queue.sync_q.closed
+
+        queue.close()
+
+        assert queue.closed
+        assert queue.async_q.closed
+        assert queue.sync_q.closed
+
+    @pytest.mark.asyncio
+    async def test_double_closing(self):
+        queue = self.factory()
+
+        queue.close()
+        queue.close()
+
+        await queue.wait_closed()
+
+    @pytest.mark.asyncio
+    async def test_wait_without_closing(self):
+        queue = self.factory()
+
+        with pytest.raises(RuntimeError):
+            await queue.wait_closed()
+
+        queue.close()
+        await queue.wait_closed()
+
+    @pytest.mark.asyncio
+    async def test_modifying_forbidden_after_closing(self):
+        queue = self.factory()
+        queue.close()
+
+        with pytest.raises(RuntimeError):
+            queue.sync_q.put(5)
+
+        with pytest.raises(RuntimeError):
+            queue.sync_q.put_nowait(5)
+
+        with pytest.raises(RuntimeError):
+            queue.sync_q.get()
+
+        with pytest.raises(RuntimeError):
+            queue.sync_q.get_nowait()
+
+        with pytest.raises(RuntimeError):
+            await queue.async_q.put(5)
+
+        with pytest.raises(RuntimeError):
+            queue.async_q.put_nowait(5)
+
+        with pytest.raises(RuntimeError):
+            await queue.async_q.get()
+
+        with pytest.raises(RuntimeError):
+            queue.async_q.get_nowait()
+
+        await queue.wait_closed()
