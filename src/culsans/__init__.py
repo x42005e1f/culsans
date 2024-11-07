@@ -511,10 +511,11 @@ class SyncQueueProxy(SyncQueue[T]):
 
                     rescheduled = True
 
-            item = wrapped._peek()
-
-            if rescheduled:
-                wrapped._not_empty.notify()
+            try:
+                item = wrapped._peek()
+            finally:
+                if rescheduled:
+                    wrapped._not_empty.notify()
 
         if not rescheduled:
             green_checkpoint()
@@ -871,10 +872,11 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
                 rescheduled = True
 
-            item = wrapped._peek()
-
-            if rescheduled:
-                wrapped._not_empty.notify()
+            try:
+                item = wrapped._peek()
+            finally:
+                if rescheduled:
+                    wrapped._not_empty.notify()
 
         if not rescheduled:
             await checkpoint()
