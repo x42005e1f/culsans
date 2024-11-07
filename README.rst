@@ -98,6 +98,9 @@ unordered queue that contains only unique items:
         def _put(self, item):
             self.data.add(item)
 
+        def _peek(self):
+            raise TypeError("peeking not supported")
+
         def _get(self):
             return self.data.pop()
 
@@ -112,7 +115,7 @@ unordered queue that contains only unique items:
     assert sync_q.qsize() == 2
     assert sorted(sync_q.get_nowait() for _ in range(2)) == [23, 42]
 
-All four of these methods are called in exclusive access mode, so you can
+All five of these methods are called in exclusive access mode, so you can
 freely create your subclasses without thinking about whether your methods are
 thread-safe or not.
 
