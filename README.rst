@@ -76,6 +76,113 @@ Example
 
     anyio.run(main)
 
+Extras
+------
+
+Both interfaces support some additional features that are not found in the
+original queues.
+
+growing & shrinking
+^^^^^^^^^^^^^^^^^^^
+
+You can dynamically change the upperbound limit on the number of items that can
+be placed in the queue with ``queue.maxsize = N``. If it increases (growing),
+the required number of waiting putters will be woken up. If it decreases
+(shrinking), items exceeding the new limit will remain in the queue, but all
+putters will be blocked until enough items are retrieved from the queue. And if
+*maxsize* is less than or equal to zero, all putters will be woken up.
+
+.. code:: python
+
+    async with anyio.create_task_group() as tasks:
+        async_q = culsans.Queue(1).async_q
+
+        for i in range(4):
+            tasks.start_soon(async_q.put, i)
+
+        await anyio.sleep(0)
+        assert async_q.qsize() == 1
+
+        async_q.maxsize = 2  # growing
+
+        await anyio.sleep(0)
+        assert async_q.qsize() == 2
+
+        async_q.maxsize = 1  # shrinking
+
+        await anyio.sleep(0)
+        assert async_q.qsize() == 2
+
+        async_q.get_nowait()
+
+        await anyio.sleep(1)
+        assert async_q.qsize() == 1
+
+        async_q.maxsize = 0  # now the queue size is infinite
+
+        await anyio.sleep(0)
+        assert async_q.qsize() == 3
+
+peek() & peek_nowait()
+^^^^^^^^^^^^^^^^^^^^^^
+
+If you want to check the first item of the queue, but do not want to remove
+that item from the queue, you can use the ``peek()`` and ``peek_nowait()``
+methods instead of the ``get()`` and ``get_nowait()`` methods.
+
+.. code:: python
+
+    sync_q = culsans.Queue().sync_q
+
+    sync_q.put("spam")
+
+    assert sync_q.peek() == "spam"
+    assert sync_q.peek_nowait() == "spam"
+    assert sync_q.qsize() == 1
+
+These methods can be considered an implementation of partial compatibility with
+`gevent queues <https://www.gevent.org/api/gevent.queue.html>`_.
+
+clear()
+^^^^^^^
+
+In some scenarios it may be necessary to clear the queue. But it is inefficient
+to do this through a loop, and it causes additional difficulties when it is
+also necessary to ensure that no new items can be added during the clearing
+process. For this purpose, there is an atomic method ``clear()`` that clears
+the queue most efficiently.
+
+.. code:: python
+
+    async with anyio.create_task_group() as tasks:
+        async_q = culsans.Queue(3).async_q
+
+        for i in range(5):
+            tasks.start_soon(async_q.put, i)
+
+        await anyio.sleep(0)
+        assert async_q.qsize() == 3
+
+        async_q.clear()  # clearing
+
+        await anyio.sleep(0)
+        assert async_q.qsize() == 2
+        assert async_q.get_nowait() == 3
+        assert async_q.get_nowait() == 4
+
+Roughly equivalent to:
+
+.. code:: python
+
+    def clear(queue):
+        while True:
+            try:
+                queue.get_nowait()
+            except Empty:
+                break
+            else:
+                queue.task_done()
+
 Subclasses
 ----------
 
