@@ -269,9 +269,9 @@ Compatibility
 =============
 
 The interfaces are compliant with the Python API version 3.13, and the
-``culsans`` library itself is fully compatible with the ``janus`` library
-version 1.1.0. If you are using ``janus`` in your application and want to
-switch to ``culsans``, all you have to do is replace this:
+``culsans`` library itself is almost fully compatible with the ``janus``
+library version 1.1.0. If you are using ``janus`` in your application and want
+to switch to ``culsans``, all you have to do is replace this:
 
 .. code:: python
 
@@ -283,7 +283,12 @@ with this:
 
     import culsans as janus
 
-and everything will work.
+and everything will work, except for the queue behavior after the ``close()``
+call: new ``put()`` calls will still raise a ``RuntimeError``, but all
+currently waiting ones will be woken up, and the ``join()`` and ``task_done()``
+calls will succeed. This behavior corresponds to the queue behavior after the
+``shutdown()`` call and solves
+`aio-libs/janus#237 <https://github.com/aio-libs/janus/issues/237>`_.
 
 Performance
 ===========
