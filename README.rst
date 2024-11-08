@@ -265,6 +265,26 @@ string for the second.
 
 Checkpoints are enabled by default for the ``trio`` library.
 
+Compatibility
+=============
+
+The interfaces are compliant with the Python API version 3.13, and the
+``culsans`` library itself is fully compatible with the ``janus`` library
+version 1.1.0. If you are using ``janus`` in your application and want to
+switch to ``culsans``, all you have to do is replace this:
+
+.. code:: python
+
+    import janus
+
+with this:
+
+.. code:: python
+
+    import culsans as janus
+
+and everything will work.
+
 Performance
 ===========
 
