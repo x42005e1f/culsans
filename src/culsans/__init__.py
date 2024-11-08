@@ -70,6 +70,8 @@ class BaseQueue(Protocol[T]):
 
     def get_nowait(self) -> T: ...
 
+    def clear(self) -> None: ...
+
     def task_done(self) -> None: ...
 
     def shutdown(self, immediate: bool = False) -> None: ...
@@ -244,6 +246,9 @@ class Queue(Generic[T]):
     def _get(self) -> T:
         return self.data.popleft()
 
+    def _clear(self) -> None:
+        self.data.clear()
+
     @property
     def sync_q(self) -> SyncQueue[T]:
         return SyncQueueProxy(self)
@@ -303,6 +308,9 @@ class LifoQueue(Queue[T]):
     def _get(self) -> T:
         return self.data.pop()
 
+    def _clear(self) -> None:
+        self.data.clear()
+
 
 class PriorityQueue(Queue[T]):
     """A subclass of Queue; retrieves entries in priority order (lowest first).
@@ -328,6 +336,9 @@ class PriorityQueue(Queue[T]):
 
     def _get(self) -> T:
         return heappop(self.data)
+
+    def _clear(self) -> None:
+        self.data.clear()
 
 
 class SyncQueueProxy(SyncQueue[T]):
@@ -628,6 +639,23 @@ class SyncQueueProxy(SyncQueue[T]):
             wrapped._not_full.notify()
 
         return item
+
+    def clear(self) -> None:
+        """Clear all items from the queue atomically."""
+
+        wrapped = self.wrapped
+
+        with wrapped._mutex:
+            size = wrapped._qsize()
+            unfinished = max(0, wrapped._unfinished_tasks - size)
+
+            wrapped._clear()
+
+            if not unfinished:
+                wrapped._all_tasks_done.notify_all()
+
+            wrapped._unfinished_tasks = unfinished
+            wrapped._not_full.notify(size)
 
     def task_done(self) -> None:
         """Indicate that a formerly enqueued task is complete.
@@ -958,6 +986,23 @@ class AsyncQueueProxy(AsyncQueue[T]):
             wrapped._not_full.notify()
 
         return item
+
+    def clear(self) -> None:
+        """Clear all items from the queue atomically."""
+
+        wrapped = self.wrapped
+
+        with wrapped._mutex:
+            size = wrapped._qsize()
+            unfinished = max(0, wrapped._unfinished_tasks - size)
+
+            wrapped._clear()
+
+            if not unfinished:
+                wrapped._all_tasks_done.notify_all()
+
+            wrapped._unfinished_tasks = unfinished
+            wrapped._not_full.notify(size)
 
     def task_done(self) -> None:
         """Indicate that a formerly enqueued task is complete.
