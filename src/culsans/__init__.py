@@ -490,18 +490,16 @@ class SyncQueueProxy(SyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
-            if not wrapped._qsize():
-                self._check_closing()
-
             if not block:
                 if not wrapped._qsize():
+                    self._check_closing()
+
                     raise SyncQueueEmpty
             elif timeout is None:
                 while not wrapped._qsize():
-                    wrapped._not_empty.wait()
+                    self._check_closing()
 
-                    if not wrapped._qsize():
-                        self._check_closing()
+                    wrapped._not_empty.wait()
 
                     rescheduled = True
             elif timeout < 0:
@@ -510,15 +508,14 @@ class SyncQueueProxy(SyncQueue[T]):
                 endtime = time.monotonic() + timeout
 
                 while not wrapped._qsize():
+                    self._check_closing()
+
                     remaining = endtime - time.monotonic()
 
                     if remaining <= 0:
                         raise SyncQueueEmpty
 
                     wrapped._not_empty.wait(remaining)
-
-                    if not wrapped._qsize():
-                        self._check_closing()
 
                     rescheduled = True
 
@@ -575,18 +572,16 @@ class SyncQueueProxy(SyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
-            if not wrapped._qsize():
-                self._check_closing()
-
             if not block:
                 if not wrapped._qsize():
+                    self._check_closing()
+
                     raise SyncQueueEmpty
             elif timeout is None:
                 while not wrapped._qsize():
-                    wrapped._not_empty.wait()
+                    self._check_closing()
 
-                    if not wrapped._qsize():
-                        self._check_closing()
+                    wrapped._not_empty.wait()
 
                     rescheduled = True
             elif timeout < 0:
@@ -595,15 +590,14 @@ class SyncQueueProxy(SyncQueue[T]):
                 endtime = time.monotonic() + timeout
 
                 while not wrapped._qsize():
+                    self._check_closing()
+
                     remaining = endtime - time.monotonic()
 
                     if remaining <= 0:
                         raise SyncQueueEmpty
 
                     wrapped._not_empty.wait(remaining)
-
-                    if not wrapped._qsize():
-                        self._check_closing()
 
                     rescheduled = True
 
@@ -841,13 +835,12 @@ class AsyncQueueProxy(AsyncQueue[T]):
         with wrapped._mutex:
             self._check_closing()
 
-            if 0 < wrapped._maxsize:
-                while 0 < wrapped._maxsize <= wrapped._qsize():
-                    await wrapped._not_full
+            while 0 < wrapped._maxsize <= wrapped._qsize():
+                await wrapped._not_full
 
-                    self._check_closing()
+                self._check_closing()
 
-                    rescheduled = True
+                rescheduled = True
 
             wrapped._put(item)
 
