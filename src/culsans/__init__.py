@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: 0BSD
 
 __all__ = (
+    "UnsupportedOperation",
     "SyncQueueEmpty",
     "SyncQueueFull",
     "SyncQueueShutDown",
@@ -52,11 +53,17 @@ else:
         """Raised when put/get with shut-down queue."""
 
 
+class UnsupportedOperation(ValueError):
+    """Raised when peek with non-peekable queue."""
+
+
 T = TypeVar("T")
 
 
 class BaseQueue(Protocol[T]):
     __slots__ = ()
+
+    def peekable(self) -> bool: ...
 
     def qsize(self) -> int: ...
 
@@ -242,6 +249,9 @@ class Queue(Generic[T]):
     def _peek(self) -> T:
         return self.data[0]
 
+    def _peekable(self) -> bool:
+        return True
+
     # Get an item from the queue
     def _get(self) -> T:
         return self.data.popleft()
@@ -305,6 +315,9 @@ class LifoQueue(Queue[T]):
     def _peek(self) -> T:
         return self.data[-1]
 
+    def _peekable(self) -> bool:
+        return True
+
     def _get(self) -> T:
         return self.data.pop()
 
@@ -334,6 +347,9 @@ class PriorityQueue(Queue[T]):
     def _peek(self) -> T:
         return self.data[0]
 
+    def _peekable(self) -> bool:
+        return True
+
     def _get(self) -> T:
         return heappop(self.data)
 
@@ -346,6 +362,14 @@ class SyncQueueProxy(SyncQueue[T]):
 
     def __init__(self, wrapped: Queue[T]) -> None:
         self.wrapped = wrapped
+
+    def peekable(self) -> bool:
+        """Return True if the queue is peekable, False otherwise."""
+
+        wrapped = self.wrapped
+
+        with wrapped._mutex:
+            return wrapped._peekable()
 
     def qsize(self) -> int:
         """Return the approximate size of the queue (not reliable!)."""
@@ -490,6 +514,8 @@ class SyncQueueProxy(SyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
+            self._check_peekable()
+
             if not block:
                 if not wrapped._qsize():
                     self._check_closing()
@@ -543,6 +569,8 @@ class SyncQueueProxy(SyncQueue[T]):
         wrapped = self.wrapped
 
         with wrapped._mutex:
+            self._check_peekable()
+
             if not wrapped._qsize():
                 self._check_closing()
 
@@ -734,6 +762,12 @@ class SyncQueueProxy(SyncQueue[T]):
             wrapped._not_empty.notify_all()
             wrapped._not_full.notify_all()
 
+    def _check_peekable(self) -> None:
+        wrapped = self.wrapped
+
+        if not wrapped._peekable():
+            raise UnsupportedOperation("peeking not supported")
+
     def _check_closing(self) -> None:
         wrapped = self.wrapped
 
@@ -779,6 +813,14 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
     def __init__(self, wrapped: Queue[T]) -> None:
         self.wrapped = wrapped
+
+    def peekable(self) -> bool:
+        """Return True if the queue is peekable, False otherwise."""
+
+        wrapped = self.wrapped
+
+        with wrapped._mutex:
+            return wrapped._peekable()
 
     def qsize(self) -> int:
         """Return the approximate size of the queue (not reliable!)."""
@@ -886,6 +928,8 @@ class AsyncQueueProxy(AsyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
+            self._check_peekable()
+
             while not wrapped._qsize():
                 self._check_closing()
 
@@ -917,6 +961,8 @@ class AsyncQueueProxy(AsyncQueue[T]):
         wrapped = self.wrapped
 
         with wrapped._mutex:
+            self._check_peekable()
+
             if not wrapped._qsize():
                 self._check_closing()
 
@@ -1079,6 +1125,12 @@ class AsyncQueueProxy(AsyncQueue[T]):
             # all getters need to re-check queue-empty to raise QueueShutDown
             wrapped._not_empty.notify_all()
             wrapped._not_full.notify_all()
+
+    def _check_peekable(self) -> None:
+        wrapped = self.wrapped
+
+        if not wrapped._peekable():
+            raise UnsupportedOperation("peeking not supported")
 
     def _check_closing(self) -> None:
         wrapped = self.wrapped
