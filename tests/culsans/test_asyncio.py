@@ -5,6 +5,8 @@ import unittest
 
 import culsans
 
+from aiologic.lowlevel import asyncio_checkpoints_cvar
+
 
 class QueueBasicTests(unittest.IsolatedAsyncioTestCase):
 
@@ -44,7 +46,7 @@ class QueueBasicTests(unittest.IsolatedAsyncioTestCase):
             return True
 
         t = asyncio.create_task(putter())
-        for i in range(2):
+        for _ in range(4 if asyncio_checkpoints_cvar.get() else 2):
             await asyncio.sleep(0)
 
         # The putter is blocked after putting two items.
@@ -287,6 +289,8 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
         t = asyncio.create_task(queue_put())
 
         self.assertEqual(1, await q.get())
+        if asyncio_checkpoints_cvar.get():
+            await asyncio.sleep(0)
         self.assertTrue(t.done())
         self.assertTrue(t.result())
 
@@ -297,7 +301,8 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
         put_b = asyncio.create_task(q.put('b'))
         put_c = asyncio.create_task(q.put('X'))
 
-        await asyncio.sleep(0)
+        for _ in range(2 if asyncio_checkpoints_cvar.get() else 1):
+            await asyncio.sleep(0)
         self.assertTrue(put_a.done())
         self.assertFalse(put_b.done())
 
@@ -570,7 +575,8 @@ class _QueueShutdownTestMixin:
         self.assertEqual(q.qsize(), 0)
 
         # Ensure join() task has successfully finished
-        await asyncio.sleep(0)
+        for _ in range(2 if asyncio_checkpoints_cvar.get() else 1):
+            await asyncio.sleep(0)
         self.assertTrue(join_task.done())
         await join_task
 
