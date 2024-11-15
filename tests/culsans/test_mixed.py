@@ -149,25 +149,21 @@ class TestMixedQueue:
 
         with pytest.raises(RuntimeError):
             queue.sync_q.put(5)
-
         with pytest.raises(RuntimeError):
             queue.sync_q.put_nowait(5)
 
         with pytest.raises(RuntimeError):
             queue.sync_q.get()
-
         with pytest.raises(RuntimeError):
             queue.sync_q.get_nowait()
 
         with pytest.raises(RuntimeError):
             await queue.async_q.put(5)
-
         with pytest.raises(RuntimeError):
             queue.async_q.put_nowait(5)
 
         with pytest.raises(RuntimeError):
             await queue.async_q.get()
-
         with pytest.raises(RuntimeError):
             queue.async_q.get_nowait()
 
