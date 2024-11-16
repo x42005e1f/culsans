@@ -631,7 +631,8 @@ class SyncQueueProxy(SyncQueue[T]):
 
             item = wrapped._get()
 
-            wrapped._not_full.notify()
+            if 0 >= wrapped._maxsize or wrapped._maxsize > wrapped._qsize():
+                wrapped._not_full.notify()
 
         if not rescheduled:
             green_checkpoint()
@@ -658,7 +659,8 @@ class SyncQueueProxy(SyncQueue[T]):
 
             item = wrapped._get()
 
-            wrapped._not_full.notify()
+            if 0 >= wrapped._maxsize or wrapped._maxsize > wrapped._qsize():
+                wrapped._not_full.notify()
 
         return item
 
@@ -995,7 +997,8 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
             item = wrapped._get()
 
-            wrapped._not_full.notify()
+            if 0 >= wrapped._maxsize or wrapped._maxsize > wrapped._qsize():
+                wrapped._not_full.notify()
 
         if not rescheduled:
             await checkpoint()
@@ -1022,7 +1025,8 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
             item = wrapped._get()
 
-            wrapped._not_full.notify()
+            if 0 >= wrapped._maxsize or wrapped._maxsize > wrapped._qsize():
+                wrapped._not_full.notify()
 
         return item
 
