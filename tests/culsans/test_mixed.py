@@ -148,6 +148,41 @@ class TestMixedQueue:
         assert queue.async_q.qsize() == 2
 
     @pytest.mark.asyncio
+    async def test_clear(self):
+        queue = self.factory()
+        loop = asyncio.get_running_loop()
+
+        for i in range(3):
+            queue.async_q.put_nowait(i)
+
+        assert queue.unfinished_tasks == 3
+        assert queue.async_q.qsize() == 3
+
+        task = loop.run_in_executor(None, queue.sync_q.join)
+
+        queue.async_q.clear()
+
+        assert queue.unfinished_tasks == 0
+        assert queue.async_q.qsize() == 0
+
+        await task
+
+        for i in range(3):
+            queue.async_q.put_nowait(i)
+
+        assert queue.unfinished_tasks == 3
+        assert queue.async_q.qsize() == 3
+
+        task = asyncio.create_task(queue.async_q.join())
+
+        queue.sync_q.clear()
+
+        assert queue.unfinished_tasks == 0
+        assert queue.async_q.qsize() == 0
+
+        await task
+
+    @pytest.mark.asyncio
     async def test_closed(self):
         queue = self.factory()
 
