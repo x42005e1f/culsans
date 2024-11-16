@@ -110,6 +110,44 @@ class TestMixedQueue:
             )
 
     @pytest.mark.asyncio
+    async def test_growing_and_shrinking(self):
+        queue = self.factory(1)
+        loop = asyncio.get_running_loop()
+
+        queue.async_q.put_nowait(0)
+        assert queue.async_q.qsize() == 1
+
+        task = loop.run_in_executor(None, queue.sync_q.put, 1)
+
+        while not queue._not_full.waiting:
+            await asyncio.sleep(1e-3)
+
+        queue.async_q.maxsize = 2  # growing
+
+        await task
+        assert queue.async_q.qsize() == 2
+
+        task = loop.run_in_executor(None, queue.sync_q.put, 2)
+
+        while not queue._not_full.waiting:
+            await asyncio.sleep(1e-3)
+
+        queue.async_q.maxsize = 1  # shrinking
+
+        assert queue._not_full.waiting == 1
+        assert queue.async_q.qsize() == 2
+
+        queue.async_q.get_nowait()
+
+        assert queue._not_full.waiting == 1
+        assert queue.async_q.qsize() == 1
+
+        queue.async_q.maxsize = 0  # now the queue size is infinite
+
+        await task
+        assert queue.async_q.qsize() == 2
+
+    @pytest.mark.asyncio
     async def test_closed(self):
         queue = self.factory()
 
