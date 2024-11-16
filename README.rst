@@ -100,27 +100,27 @@ putters will be blocked until enough items are retrieved from the queue. And if
         for i in range(4):
             tasks.start_soon(async_q.put, i)
 
-        await anyio.sleep(0)
+        await anyio.sleep(1e-3)
         assert async_q.qsize() == 1
 
         async_q.maxsize = 2  # growing
 
-        await anyio.sleep(0)
+        await anyio.sleep(1e-3)
         assert async_q.qsize() == 2
 
         async_q.maxsize = 1  # shrinking
 
-        await anyio.sleep(0)
+        await anyio.sleep(1e-3)
         assert async_q.qsize() == 2
 
         async_q.get_nowait()
 
-        await anyio.sleep(1)
+        await anyio.sleep(1e-3)
         assert async_q.qsize() == 1
 
         async_q.maxsize = 0  # now the queue size is infinite
 
-        await anyio.sleep(0)
+        await anyio.sleep(1e-3)
         assert async_q.qsize() == 3
 
 peek() & peek_nowait()
@@ -161,12 +161,12 @@ the queue most efficiently.
         for i in range(5):
             tasks.start_soon(async_q.put, i)
 
-        await anyio.sleep(0)
+        await anyio.sleep(1e-3)
         assert async_q.qsize() == 3
 
         async_q.clear()  # clearing
 
-        await anyio.sleep(0)
+        await anyio.sleep(1e-3)
         assert async_q.qsize() == 2
         assert async_q.get_nowait() == 3
         assert async_q.get_nowait() == 4
