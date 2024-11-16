@@ -148,6 +148,27 @@ class TestMixedQueue:
         assert queue.async_q.qsize() == 2
 
     @pytest.mark.asyncio
+    async def test_peek(self):
+        queue = self.factory()
+
+        assert queue.sync_q.peekable()
+        assert queue.async_q.peekable()
+
+        with pytest.raises(culsans.SyncQueueEmpty):
+            queue.sync_q.peek(block=False)
+        with pytest.raises(culsans.SyncQueueEmpty):
+            queue.sync_q.peek_nowait()
+        with pytest.raises(culsans.AsyncQueueEmpty):
+            queue.async_q.peek_nowait()
+
+        queue.async_q.put_nowait(42)
+
+        assert queue.sync_q.peek() == 42
+        assert queue.sync_q.peek_nowait() == 42
+        assert await queue.async_q.peek() == 42
+        assert queue.async_q.peek_nowait() == 42
+
+    @pytest.mark.asyncio
     async def test_clear(self):
         queue = self.factory()
         loop = asyncio.get_running_loop()
