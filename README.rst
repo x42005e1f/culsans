@@ -328,6 +328,15 @@ GitHub Discussions: https://github.com/x42005e1f/culsans/discussions
 
 Feel free to post your questions and ideas here.
 
+Support
+=======
+
+If you like ``culsans`` and want to support its development, star `its
+repository on GitHub <https://github.com/x42005e1f/culsans>`_.
+
+.. image:: https://starchart.cc/x42005e1f/culsans.svg?variant=adaptive
+  :target: https://starchart.cc/x42005e1f/culsans
+
 License
 =======
 
