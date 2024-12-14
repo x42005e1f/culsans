@@ -291,7 +291,7 @@ Compatibility
 
 The interfaces are compliant with the Python API version 3.13, and the
 ``culsans`` library itself is almost fully compatible with the ``janus``
-library version 1.1.0. If you are using ``janus`` in your application and want
+library version 1.2.0. If you are using ``janus`` in your application and want
 to switch to ``culsans``, all you have to do is replace this:
 
 .. code:: python
@@ -316,10 +316,10 @@ Performance
 
 Being built on the ``aiologic`` package, the ``culsans`` library has
 speed advantages. In sync -> async benchmarks, ``culsans.Queue`` is typically
-5/6/3 times faster than ``janus.Queue`` on CPython 3.9-3.11/3.12/3.13, and 15
-times faster on PyPy 3.10. However, if your application is performance
-sensitive and you do not need API compatibility, try ``aiologic`` queues.
-They are 6/7/4 times faster and 30 times faster in the same benchmarks.
+the same as ``janus.Queue`` on CPython 3.9-3.13, and 15 times faster on PyPy
+3.10. However, if your application is performance sensitive and you do not need
+API compatibility, try ``aiologic`` queues. They are a little faster and 30
+times faster in the same benchmarks.
 
 Communication channels
 ======================
