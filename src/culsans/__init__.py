@@ -320,7 +320,6 @@ class Queue(Generic[T]):
         "_all_tasks_done",
         "_unfinished_tasks",
         "_is_shutdown",
-        "_is_closing",
         "_mutex",
         "data",
     )
@@ -340,7 +339,6 @@ class Queue(Generic[T]):
         self._unfinished_tasks = 0
 
         self._is_shutdown = False
-        self._is_closing = False
 
         self._mutex = mutex
 
@@ -361,21 +359,10 @@ class Queue(Generic[T]):
             self._not_full.notify_all()
 
     def close(self) -> None:
-        with self._mutex:
-            self._is_closing = True
-
-            while self._qsize():
-                self._get()
-
-                if self._unfinished_tasks > 0:
-                    self._unfinished_tasks -= 1
-
-            self._all_tasks_done.notify_all()
-            self._not_empty.notify_all()
-            self._not_full.notify_all()
+        self.shutdown(immediate=True)
 
     async def wait_closed(self) -> None:
-        if not self._is_closing:
+        if not self._is_shutdown:
             raise RuntimeError("Waiting for non-closed queue")
 
         await checkpoint()
@@ -427,7 +414,7 @@ class Queue(Generic[T]):
 
     @property
     def closed(self) -> bool:
-        return self._is_closing
+        return self._is_shutdown
 
     @property
     def maxsize(self) -> int:
@@ -778,9 +765,6 @@ class SyncQueueProxy(SyncQueue[T]):
     def _check_closing(self) -> None:
         wrapped = self.wrapped
 
-        if wrapped._is_closing:
-            raise RuntimeError("Operation on the closed queue is forbidden")
-
         if wrapped._is_shutdown:
             raise SyncQueueShutDown
 
@@ -794,7 +778,7 @@ class SyncQueueProxy(SyncQueue[T]):
 
     @property
     def closed(self) -> bool:
-        return self.wrapped._is_closing
+        return self.wrapped._is_shutdown
 
     @property
     def maxsize(self) -> int:
@@ -1016,9 +1000,6 @@ class AsyncQueueProxy(AsyncQueue[T]):
     def _check_closing(self) -> None:
         wrapped = self.wrapped
 
-        if wrapped._is_closing:
-            raise RuntimeError("Operation on the closed queue is forbidden")
-
         if wrapped._is_shutdown:
             raise AsyncQueueShutDown
 
@@ -1032,7 +1013,7 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
     @property
     def closed(self) -> bool:
-        return self.wrapped._is_closing
+        return self.wrapped._is_shutdown
 
     @property
     def maxsize(self) -> int:

@@ -241,24 +241,24 @@ class TestMixedQueue:
         queue = self.factory()
         queue.close()
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(culsans.SyncQueueShutDown):
             queue.sync_q.put(5)
-        with pytest.raises(RuntimeError):
+        with pytest.raises(culsans.SyncQueueShutDown):
             queue.sync_q.put_nowait(5)
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(culsans.SyncQueueShutDown):
             queue.sync_q.get()
-        with pytest.raises(RuntimeError):
+        with pytest.raises(culsans.SyncQueueShutDown):
             queue.sync_q.get_nowait()
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(culsans.AsyncQueueShutDown):
             await queue.async_q.put(5)
-        with pytest.raises(RuntimeError):
+        with pytest.raises(culsans.AsyncQueueShutDown):
             queue.async_q.put_nowait(5)
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(culsans.AsyncQueueShutDown):
             await queue.async_q.get()
-        with pytest.raises(RuntimeError):
+        with pytest.raises(culsans.AsyncQueueShutDown):
             queue.async_q.get_nowait()
 
         await queue.wait_closed()
