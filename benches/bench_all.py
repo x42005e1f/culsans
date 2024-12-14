@@ -12,6 +12,7 @@ executables = [
     "python3.11",
     "python3.12",
     "python3.13",
+    "python3.13t",
     "pypy3.10",
 ]
 libraries = [
