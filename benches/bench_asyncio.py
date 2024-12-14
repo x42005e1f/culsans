@@ -3,21 +3,15 @@
 import sys
 import asyncio
 
-from threading import Thread
-from concurrent.futures import CancelledError
-
 
 def work(loop, in_q, out_q):
-    try:
-        while True:
-            item = asyncio.run_coroutine_threadsafe(in_q.get(), loop).result()
+    while True:
+        item = asyncio.run_coroutine_threadsafe(in_q.get(), loop).result()
 
-            if item is None:
-                break
+        if item is None:
+            break
 
-            loop.call_soon_threadsafe(out_q.put_nowait, item)
-    except (CancelledError, RuntimeError):  # event loop is closed
-        pass
+        loop.call_soon_threadsafe(out_q.put_nowait, item)
 
 
 async def func(in_q, out_q):
@@ -27,27 +21,29 @@ async def func(in_q, out_q):
         item = 42
 
         while True:
-            await out_q.put(item)
-
-            ops += 1
+            out_q.put_nowait(item)
 
             item = await in_q.get()
+
+            ops += 1
     finally:
-        print(ops)
+        print(ops // 6)
 
 
 async def main():
     in_q = asyncio.Queue()
     out_q = asyncio.Queue()
 
-    Thread(target=work, args=[asyncio.get_running_loop(), out_q, in_q]).start()
+    loop = asyncio.get_running_loop()
+    future = loop.run_in_executor(None, work, loop, out_q, in_q)
 
     try:
         await asyncio.wait_for(func(in_q, out_q), 6)
     except asyncio.TimeoutError:
         pass
     finally:
-        await out_q.put(None)
+        out_q.put_nowait(None)
+        await future
 
 
 if __name__ == "__main__":

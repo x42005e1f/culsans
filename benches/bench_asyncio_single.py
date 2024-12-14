@@ -14,11 +14,11 @@ async def func(in_q, out_q):
         while True:
             loop.call_soon_threadsafe(out_q.put_nowait, item)
 
-            ops += 1
-
             item = await in_q.get()
+
+            ops += 1
     finally:
-        print(ops)
+        print(ops // 6)
 
 
 async def main():

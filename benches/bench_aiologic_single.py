@@ -16,11 +16,11 @@ async def func(in_q, out_q):
         while True:
             loop.call_soon(out_q.put, item)
 
-            ops += 1
-
             item = await in_q.async_get()
+
+            ops += 1
     finally:
-        print(ops)
+        print(ops // 6)
 
 
 async def main():

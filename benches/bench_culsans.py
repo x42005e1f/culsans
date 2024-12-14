@@ -3,8 +3,6 @@
 import sys
 import asyncio
 
-from threading import Thread
-
 import culsans
 
 
@@ -15,7 +13,7 @@ def work(in_q, out_q):
         if item is None:
             break
 
-        out_q.put(item)
+        out_q.put_nowait(item)
 
 
 async def func(in_q, out_q):
@@ -25,27 +23,29 @@ async def func(in_q, out_q):
         item = 42
 
         while True:
-            await out_q.put(item)
-
-            ops += 1
+            out_q.put_nowait(item)
 
             item = await in_q.get()
+
+            ops += 1
     finally:
-        print(ops)
+        print(ops // 6)
 
 
 async def main():
     in_q = culsans.Queue()
     out_q = culsans.Queue()
 
-    Thread(target=work, args=[out_q.sync_q, in_q.sync_q]).start()
+    loop = asyncio.get_running_loop()
+    future = loop.run_in_executor(None, work, out_q.sync_q, in_q.sync_q)
 
     try:
         await asyncio.wait_for(func(in_q.async_q, out_q.async_q), 6)
     except asyncio.TimeoutError:
         pass
     finally:
-        await out_q.async_q.put(None)
+        out_q.sync_q.put_nowait(None)
+        await future
 
 
 if __name__ == "__main__":
