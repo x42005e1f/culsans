@@ -319,8 +319,6 @@ speed advantages. When communication is performed within a single thread using
 the asynchronous API, ``culsans.Queue`` is typically 2 times faster than
 ``janus.Queue``:
 
-+---------------------------------------------------------------------+
-|                   sync -> async, single-threaded                    |
 +-------------+-------------+-------------+-------------+-------------+
 |   python    |    janus    |   culsans   |  aiologic   |   asyncio   |
 +=============+=============+=============+=============+=============+
@@ -341,8 +339,6 @@ the asynchronous API, ``culsans.Queue`` is typically 2 times faster than
 
 And when communication is performed within two threads, they are the same:
 
-+---------------------------------------------------------------------+
-|                    sync -> async, multi-threaded                    |
 +-------------+-------------+-------------+-------------+-------------+
 |   python    |    janus    |   culsans   |  aiologic   |   asyncio   |
 +=============+=============+=============+=============+=============+
