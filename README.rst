@@ -25,6 +25,24 @@ Synchronous is fully compatible with
 one follows
 `asyncio queue design <https://docs.python.org/3/library/asyncio-queue.html>`_.
 
+Installation
+============
+
+Install from `PyPI <https://pypi.org/project/culsans/>`_ (recommended):
+
+.. code:: console
+
+    pip install culsans
+
+Or from `GitHub <https://github.com/x42005e1f/culsans>`_:
+
+.. code:: console
+
+    pip install git+https://github.com/x42005e1f/culsans.git
+
+You can also use other package managers, such as
+`uv <https://github.com/astral-sh/uv>`_.
+
 Usage
 =====
 
