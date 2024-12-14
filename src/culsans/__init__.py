@@ -405,6 +405,10 @@ class Queue(Generic[T]):
 
         await checkpoint()
 
+    async def aclose(self) -> None:
+        self.close()
+        await self.wait_closed()
+
     # Override these methods to implement other queue organizations
     # (e.g. stack or priority queue).
     # These will only be called with appropriate locks held
