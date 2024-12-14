@@ -224,13 +224,13 @@ unordered queue that contains only unique items:
         def _put(self, item):
             self.data.add(item)
 
+        def _get(self):
+            return self.data.pop()
+
         _peek = None
 
         def _peekable(self):
             return False
-
-        def _get(self):
-            return self.data.pop()
 
         def _clear(self):
             self.data.clear()
