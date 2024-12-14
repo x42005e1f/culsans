@@ -388,7 +388,6 @@ class Queue(Generic[T]):
     # (e.g. stack or priority queue).
     # These will only be called with appropriate locks held
 
-    # Initialize the queue representation
     def _init(self, maxsize: int) -> None:
         self.data = deque()
 
