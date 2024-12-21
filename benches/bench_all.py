@@ -77,8 +77,8 @@ def print_table(header, data):
         relative_values = [value / values[0] for value in values]
         humanized_values = [
             (
-                f"{1 - relative_value:>+5.2%}"
-                if relative_value != 1 and abs(1 - relative_value) < 1
+                f"{relative_value - 1:>+5.2%}"
+                if relative_value != 1 and abs(relative_value - 1) < 1
                 else f"×{relative_value:>4.2f}"
             )
             for relative_value in relative_values
