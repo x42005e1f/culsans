@@ -770,33 +770,23 @@ class SyncQueueProxy(SyncQueue[T]):
 
     @property
     def unfinished_tasks(self) -> int:
-        return self.wrapped._unfinished_tasks
+        return self.wrapped.unfinished_tasks
 
     @property
     def is_shutdown(self) -> bool:
-        return self.wrapped._is_shutdown
+        return self.wrapped.is_shutdown
 
     @property
     def closed(self) -> bool:
-        return self.wrapped._is_shutdown
+        return self.wrapped.closed
 
     @property
     def maxsize(self) -> int:
-        return self.wrapped._maxsize
+        return self.wrapped.maxsize
 
     @maxsize.setter
     def maxsize(self, value: int) -> None:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            maxsize = wrapped._maxsize
-
-            if value <= 0:
-                wrapped._not_full.notify_all()
-            elif value > maxsize:
-                wrapped._not_full.notify(value - maxsize)
-
-            wrapped._maxsize = value
+        self.wrapped.maxsize = value
 
 
 class AsyncQueueProxy(AsyncQueue[T]):
@@ -1005,30 +995,20 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
     @property
     def unfinished_tasks(self) -> int:
-        return self.wrapped._unfinished_tasks
+        return self.wrapped.unfinished_tasks
 
     @property
     def is_shutdown(self) -> bool:
-        return self.wrapped._is_shutdown
+        return self.wrapped.is_shutdown
 
     @property
     def closed(self) -> bool:
-        return self.wrapped._is_shutdown
+        return self.wrapped.closed
 
     @property
     def maxsize(self) -> int:
-        return self.wrapped._maxsize
+        return self.wrapped.maxsize
 
     @maxsize.setter
     def maxsize(self, value: int) -> None:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            maxsize = wrapped._maxsize
-
-            if value <= 0:
-                wrapped._not_full.notify_all()
-            elif value > maxsize:
-                wrapped._not_full.notify(value - maxsize)
-
-            wrapped._maxsize = value
+        self.wrapped.maxsize = value
