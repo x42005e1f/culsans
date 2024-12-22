@@ -90,11 +90,34 @@ class BaseQueue(Protocol[T]):
         qsize() can be used.
         """
 
-    def put_nowait(self, item: T) -> None: ...
+    def put_nowait(self, item: T) -> None:
+        """Put an item into the queue without blocking.
 
-    def get_nowait(self) -> T: ...
+        Only enqueue the item if a free slot is immediately available.
+        Otherwise raise the QueueFull exception.
 
-    def peek_nowait(self) -> T: ...
+        Raises QueueShutDown if the queue has been shut down.
+        """
+
+    def get_nowait(self) -> T:
+        """Remove and return an item from the queue without blocking.
+
+        Only get an item if one is immediately available.
+        Otherwise raise the QueueEmpty exception.
+
+        Raises QueueShutDown if the queue has been shut down and is empty,
+        or if the queue has been shut down immediately.
+        """
+
+    def peek_nowait(self) -> T:
+        """Return an item from the queue without blocking.
+
+        Only peek an item if one is immediately available.
+        Otherwise raise the QueueEmpty exception.
+
+        Raises QueueShutDown if the queue has been shut down and is empty,
+        or if the queue has been shut down immediately.
+        """
 
     def clear(self) -> None:
         """Clear all items from the queue atomically."""
@@ -235,6 +258,18 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         When the count of unfinished tasks drops to zero, join() unblocks.
         """
 
+    def shutdown(self, immediate: bool = False) -> None:
+        """Shut-down the queue, making queue gets and puts raise
+        SyncQueueShutDown.
+
+        By default, gets will only raise once the queue is empty. Set
+        'immediate' to True to make gets raise immediately instead.
+
+        All blocked callers of put() and get() will be unblocked. If
+        'immediate', a task is marked as done for each item remaining in
+        the queue, which may unblock callers of join().
+        """
+
 
 class AsyncQueue(BaseQueue[T], Protocol[T]):
     __slots__ = ()
@@ -303,6 +338,18 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
         indicate that the item was retrieved and all work on it is complete.
 
         When the count of unfinished tasks drops to zero, join() unblocks.
+        """
+
+    def shutdown(self, immediate: bool = False) -> None:
+        """Shut-down the queue, making queue gets and puts raise
+        AsyncQueueShutDown.
+
+        By default, gets will only raise once the queue is empty. Set
+        'immediate' to True to make gets raise immediately instead.
+
+        All blocked callers of put() and get() will be unblocked. If
+        'immediate', a task is marked as done for each item remaining in
+        the queue, which may unblock callers of join().
         """
 
 
