@@ -5,6 +5,9 @@
 
 __all__ = (
     "UnsupportedOperation",
+    "QueueEmpty",
+    "QueueFull",
+    "QueueShutDown",
     "SyncQueueEmpty",
     "SyncQueueFull",
     "SyncQueueShutDown",
@@ -55,6 +58,21 @@ else:
 
 class UnsupportedOperation(ValueError):
     """Raised when peek with non-peekable queue."""
+
+
+class QueueEmpty(SyncQueueEmpty, AsyncQueueEmpty):
+    """Raised when non-blocking get with empty queue."""
+
+
+class QueueFull(SyncQueueFull, AsyncQueueFull):
+    """Raised when non-blocking put with full queue."""
+
+
+class QueueShutDown(  # type: ignore[no-redef]
+    SyncQueueShutDown,
+    AsyncQueueShutDown,
+):
+    """Raised when put/get with shut-down queue."""
 
 
 T = TypeVar("T")
@@ -181,21 +199,12 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         If optional args 'block' is True and 'timeout' is None (the default),
         block if necessary until a free slot is available. If 'timeout' is
         a non-negative number, it blocks at most 'timeout' seconds and raises
-        the SyncQueueFull exception if no free slot was available within that
-        time. Otherwise ('block' is False), put an item on the queue if a free
-        slot is immediately available, else raise the SyncQueueFull exception
+        the QueueFull exception if no free slot was available within that time.
+        Otherwise ('block' is False), put an item on the queue if a free slot
+        is immediately available, else raise the QueueFull exception
         ('timeout' is ignored in that case).
 
-        Raises SyncQueueShutDown if the queue has been shut down.
-        """
-
-    def put_nowait(self, item: T) -> None:
-        """Put an item into the queue without blocking.
-
-        Only enqueue the item if a free slot is immediately available.
-        Otherwise raise the SyncQueueFull exception.
-
-        Raises SyncQueueShutDown if the queue has been shut down.
+        Raises QueueShutDown if the queue has been shut down.
         """
 
     def get(self, block: bool = True, timeout: Optional[float] = None) -> T:
@@ -204,23 +213,13 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         If optional args 'block' is True and 'timeout' is None (the default),
         block if necessary until an item is available. If 'timeout' is
         a non-negative number, it blocks at most 'timeout' seconds and raises
-        the SyncQueueEmpty exception if no item was available within that time.
+        the QueueEmpty exception if no item was available within that time.
         Otherwise ('block' is False), return an item if one is immediately
-        available, else raise the SyncQueueEmpty exception ('timeout' is
-        ignored in that case).
+        available, else raise the QueueEmpty exception ('timeout' is ignored in
+        that case).
 
-        Raises SyncQueueShutDown if the queue has been shut down and is empty,
-        or if the queue has been shut down immediately.
-        """
-
-    def get_nowait(self) -> T:
-        """Remove and return an item from the queue without blocking.
-
-        Only get an item if one is immediately available.
-        Otherwise raise the SyncQueueEmpty exception.
-
-        Raises SyncQueueShutDown if the queue has been shut down and is empty,
-        or if the queue has been shut down immediately.
+        Raises QueueShutDown if the queue has been shut down and is empty, or
+        if the queue has been shut down immediately.
         """
 
     def peek(self, block: bool = True, timeout: Optional[float] = None) -> T:
@@ -229,23 +228,13 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         If optional args 'block' is True and 'timeout' is None (the default),
         block if necessary until an item is available. If 'timeout' is
         a non-negative number, it blocks at most 'timeout' seconds and raises
-        the SyncQueueEmpty exception if no item was available within that time.
+        the QueueEmpty exception if no item was available within that time.
         Otherwise ('block' is False), return an item if one is immediately
-        available, else raise the SyncQueueEmpty exception ('timeout' is
-        ignored in that case).
+        available, else raise the QueueEmpty exception ('timeout' is ignored in
+        that case).
 
-        Raises SyncQueueShutDown if the queue has been shut down and is empty,
-        or if the queue has been shut down immediately.
-        """
-
-    def peek_nowait(self) -> T:
-        """Return an item from the queue without blocking.
-
-        Only peek an item if one is immediately available.
-        Otherwise raise the SyncQueueEmpty exception.
-
-        Raises SyncQueueShutDown if the queue has been shut down and is empty,
-        or if the queue has been shut down immediately.
+        Raises QueueShutDown if the queue has been shut down and is empty, or
+        if the queue has been shut down immediately.
         """
 
     def join(self) -> None:
@@ -258,18 +247,6 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         When the count of unfinished tasks drops to zero, join() unblocks.
         """
 
-    def shutdown(self, immediate: bool = False) -> None:
-        """Shut-down the queue, making queue gets and puts raise
-        SyncQueueShutDown.
-
-        By default, gets will only raise once the queue is empty. Set
-        'immediate' to True to make gets raise immediately instead.
-
-        All blocked callers of put() and get() will be unblocked. If
-        'immediate', a task is marked as done for each item remaining in
-        the queue, which may unblock callers of join().
-        """
-
 
 class AsyncQueue(BaseQueue[T], Protocol[T]):
     __slots__ = ()
@@ -280,16 +257,7 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
         If the queue is full, wait until a free slot is available before adding
         item.
 
-        Raises AsyncQueueShutDown if the queue has been shut down.
-        """
-
-    def put_nowait(self, item: T) -> None:
-        """Put an item into the queue without blocking.
-
-        Only enqueue the item if a free slot is immediately available.
-        Otherwise raise the AsyncQueueFull exception.
-
-        Raises AsyncQueueShutDown if the queue has been shut down.
+        Raises QueueShutDown if the queue has been shut down.
         """
 
     async def get(self) -> T:
@@ -297,18 +265,8 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
 
         If queue is empty, wait until an item is available.
 
-        Raises AsyncQueueShutDown if the queue has been shut down and is empty,
-        or if the queue has been shut down immediately.
-        """
-
-    def get_nowait(self) -> T:
-        """Remove and return an item from the queue without blocking.
-
-        Only get an item if one is immediately available.
-        Otherwise raise the AsyncQueueEmpty exception.
-
-        Raises AsyncQueueShutDown if the queue has been shut down and is empty,
-        or if the queue has been shut down immediately.
+        Raises QueueShutDown if the queue has been shut down and is empty, or
+        if the queue has been shut down immediately.
         """
 
     async def peek(self) -> T:
@@ -316,18 +274,8 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
 
         If queue is empty, wait until an item is available.
 
-        Raises AsyncQueueShutDown if the queue has been shut down and is empty,
-        or if the queue has been shut down immediately.
-        """
-
-    def peek_nowait(self) -> T:
-        """Return an item from the queue without blocking.
-
-        Only peek an item if one is immediately available.
-        Otherwise raise the AsyncQueueEmpty exception.
-
-        Raises AsyncQueueShutDown if the queue has been shut down and is empty,
-        or if the queue has been shut down immediately.
+        Raises QueueShutDown if the queue has been shut down and is empty, or
+        if the queue has been shut down immediately.
         """
 
     async def join(self) -> None:
@@ -338,18 +286,6 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
         indicate that the item was retrieved and all work on it is complete.
 
         When the count of unfinished tasks drops to zero, join() unblocks.
-        """
-
-    def shutdown(self, immediate: bool = False) -> None:
-        """Shut-down the queue, making queue gets and puts raise
-        AsyncQueueShutDown.
-
-        By default, gets will only raise once the queue is empty. Set
-        'immediate' to True to make gets raise immediately instead.
-
-        All blocked callers of put() and get() will be unblocked. If
-        'immediate', a task is marked as done for each item remaining in
-        the queue, which may unblock callers of join().
         """
 
 
@@ -405,6 +341,45 @@ class Queue(Generic[T]):
         with self._mutex:
             return 0 < self._maxsize <= self._qsize()
 
+    def put_nowait(self, item: T) -> None:
+        with self._mutex:
+            self._check_closing()
+
+            if 0 < self._maxsize <= self._qsize():
+                raise QueueFull
+
+            self._put(item)
+
+            self._unfinished_tasks += 1
+            self._not_empty.notify()
+
+    def get_nowait(self) -> T:
+        with self._mutex:
+            if not self._qsize():
+                self._check_closing()
+
+                raise QueueEmpty
+
+            item = self._get()
+
+            if 0 >= self._maxsize or self._maxsize > self._qsize():
+                self._not_full.notify()
+
+        return item
+
+    def peek_nowait(self) -> T:
+        with self._mutex:
+            self._check_peekable()
+
+            if not self._qsize():
+                self._check_closing()
+
+                raise QueueEmpty
+
+            item = self._peek()
+
+        return item
+
     def clear(self) -> None:
         with self._mutex:
             size = self._qsize()
@@ -457,6 +432,14 @@ class Queue(Generic[T]):
     async def aclose(self) -> None:
         self.close()
         await self.wait_closed()
+
+    def _check_peekable(self) -> None:
+        if not self._peekable():
+            raise UnsupportedOperation("peeking not supported")
+
+    def _check_closing(self) -> None:
+        if self._is_shutdown:
+            raise QueueShutDown
 
     # Override these methods to implement other queue organizations
     # (e.g. stack or priority queue).
@@ -610,17 +593,17 @@ class SyncQueueProxy(SyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
-            self._check_closing()
+            wrapped._check_closing()
 
             if 0 < wrapped._maxsize:
                 if not block:
                     if 0 < wrapped._maxsize <= wrapped._qsize():
-                        raise SyncQueueFull
+                        raise QueueFull
                 elif timeout is None:
                     while 0 < wrapped._maxsize <= wrapped._qsize():
                         wrapped._not_full.wait()
 
-                        self._check_closing()
+                        wrapped._check_closing()
 
                         rescheduled = True
                 elif timeout < 0:
@@ -632,11 +615,11 @@ class SyncQueueProxy(SyncQueue[T]):
                         remaining = endtime - time.monotonic()
 
                         if remaining <= 0:
-                            raise SyncQueueFull
+                            raise QueueFull
 
                         wrapped._not_full.wait(remaining)
 
-                        self._check_closing()
+                        wrapped._check_closing()
 
                         rescheduled = True
 
@@ -649,18 +632,7 @@ class SyncQueueProxy(SyncQueue[T]):
             green_checkpoint()
 
     def put_nowait(self, item: T) -> None:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            self._check_closing()
-
-            if 0 < wrapped._maxsize <= wrapped._qsize():
-                raise SyncQueueFull
-
-            wrapped._put(item)
-
-            wrapped._unfinished_tasks += 1
-            wrapped._not_empty.notify()
+        self.wrapped.put_nowait(item)
 
     def get(self, block: bool = True, timeout: Optional[float] = None) -> T:
         wrapped = self.wrapped
@@ -670,12 +642,12 @@ class SyncQueueProxy(SyncQueue[T]):
         with wrapped._mutex:
             if not block:
                 if not wrapped._qsize():
-                    self._check_closing()
+                    wrapped._check_closing()
 
-                    raise SyncQueueEmpty
+                    raise QueueEmpty
             elif timeout is None:
                 while not wrapped._qsize():
-                    self._check_closing()
+                    wrapped._check_closing()
 
                     wrapped._not_empty.wait()
 
@@ -686,12 +658,12 @@ class SyncQueueProxy(SyncQueue[T]):
                 endtime = time.monotonic() + timeout
 
                 while not wrapped._qsize():
-                    self._check_closing()
+                    wrapped._check_closing()
 
                     remaining = endtime - time.monotonic()
 
                     if remaining <= 0:
-                        raise SyncQueueEmpty
+                        raise QueueEmpty
 
                     wrapped._not_empty.wait(remaining)
 
@@ -708,20 +680,7 @@ class SyncQueueProxy(SyncQueue[T]):
         return item
 
     def get_nowait(self) -> T:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            if not wrapped._qsize():
-                self._check_closing()
-
-                raise SyncQueueEmpty
-
-            item = wrapped._get()
-
-            if 0 >= wrapped._maxsize or wrapped._maxsize > wrapped._qsize():
-                wrapped._not_full.notify()
-
-        return item
+        return self.wrapped.get_nowait()
 
     def peek(self, block: bool = True, timeout: Optional[float] = None) -> T:
         wrapped = self.wrapped
@@ -729,16 +688,16 @@ class SyncQueueProxy(SyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
-            self._check_peekable()
+            wrapped._check_peekable()
 
             if not block:
                 if not wrapped._qsize():
-                    self._check_closing()
+                    wrapped._check_closing()
 
-                    raise SyncQueueEmpty
+                    raise QueueEmpty
             elif timeout is None:
                 while not wrapped._qsize():
-                    self._check_closing()
+                    wrapped._check_closing()
 
                     wrapped._not_empty.wait()
 
@@ -749,12 +708,12 @@ class SyncQueueProxy(SyncQueue[T]):
                 endtime = time.monotonic() + timeout
 
                 while not wrapped._qsize():
-                    self._check_closing()
+                    wrapped._check_closing()
 
                     remaining = endtime - time.monotonic()
 
                     if remaining <= 0:
-                        raise SyncQueueEmpty
+                        raise QueueEmpty
 
                     wrapped._not_empty.wait(remaining)
 
@@ -772,19 +731,7 @@ class SyncQueueProxy(SyncQueue[T]):
         return item
 
     def peek_nowait(self) -> T:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            self._check_peekable()
-
-            if not wrapped._qsize():
-                self._check_closing()
-
-                raise SyncQueueEmpty
-
-            item = wrapped._peek()
-
-        return item
+        return self.wrapped.peek_nowait()
 
     def clear(self) -> None:
         self.wrapped.clear()
@@ -808,18 +755,6 @@ class SyncQueueProxy(SyncQueue[T]):
 
     def shutdown(self, immediate: bool = False) -> None:
         self.wrapped.shutdown(immediate)
-
-    def _check_peekable(self) -> None:
-        wrapped = self.wrapped
-
-        if not wrapped._peekable():
-            raise UnsupportedOperation("peeking not supported")
-
-    def _check_closing(self) -> None:
-        wrapped = self.wrapped
-
-        if wrapped._is_shutdown:
-            raise SyncQueueShutDown
 
     @property
     def unfinished_tasks(self) -> int:
@@ -866,12 +801,12 @@ class AsyncQueueProxy(AsyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
-            self._check_closing()
+            wrapped._check_closing()
 
             while 0 < wrapped._maxsize <= wrapped._qsize():
                 await wrapped._not_full
 
-                self._check_closing()
+                wrapped._check_closing()
 
                 rescheduled = True
 
@@ -884,18 +819,7 @@ class AsyncQueueProxy(AsyncQueue[T]):
             await checkpoint()
 
     def put_nowait(self, item: T) -> None:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            self._check_closing()
-
-            if 0 < wrapped._maxsize <= wrapped._qsize():
-                raise AsyncQueueFull
-
-            wrapped._put(item)
-
-            wrapped._unfinished_tasks += 1
-            wrapped._not_empty.notify()
+        self.wrapped.put_nowait(item)
 
     async def get(self) -> T:
         wrapped = self.wrapped
@@ -904,7 +828,7 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
         with wrapped._mutex:
             while not wrapped._qsize():
-                self._check_closing()
+                wrapped._check_closing()
 
                 await wrapped._not_empty
 
@@ -921,20 +845,7 @@ class AsyncQueueProxy(AsyncQueue[T]):
         return item
 
     def get_nowait(self) -> T:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            if not wrapped._qsize():
-                self._check_closing()
-
-                raise AsyncQueueEmpty
-
-            item = wrapped._get()
-
-            if 0 >= wrapped._maxsize or wrapped._maxsize > wrapped._qsize():
-                wrapped._not_full.notify()
-
-        return item
+        return self.wrapped.get_nowait()
 
     async def peek(self) -> T:
         wrapped = self.wrapped
@@ -942,10 +853,10 @@ class AsyncQueueProxy(AsyncQueue[T]):
         rescheduled = False
 
         with wrapped._mutex:
-            self._check_peekable()
+            wrapped._check_peekable()
 
             while not wrapped._qsize():
-                self._check_closing()
+                wrapped._check_closing()
 
                 await wrapped._not_empty
 
@@ -963,19 +874,7 @@ class AsyncQueueProxy(AsyncQueue[T]):
         return item
 
     def peek_nowait(self) -> T:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            self._check_peekable()
-
-            if not wrapped._qsize():
-                self._check_closing()
-
-                raise AsyncQueueEmpty
-
-            item = wrapped._peek()
-
-        return item
+        return self.wrapped.peek_nowait()
 
     def clear(self) -> None:
         self.wrapped.clear()
@@ -999,18 +898,6 @@ class AsyncQueueProxy(AsyncQueue[T]):
 
     def shutdown(self, immediate: bool = False) -> None:
         self.wrapped.shutdown(immediate)
-
-    def _check_peekable(self) -> None:
-        wrapped = self.wrapped
-
-        if not wrapped._peekable():
-            raise UnsupportedOperation("peeking not supported")
-
-    def _check_closing(self) -> None:
-        wrapped = self.wrapped
-
-        if wrapped._is_shutdown:
-            raise AsyncQueueShutDown
 
     @property
     def unfinished_tasks(self) -> int:
