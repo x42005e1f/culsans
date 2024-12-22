@@ -39,18 +39,18 @@ from aiologic.lowlevel.thread import (  # type: ignore[import-untyped]
 
 if sys.version_info >= (3, 13):
     from queue import ShutDown as SyncQueueShutDown
-else:
-
-    class SyncQueueShutDown(Exception):
-        """Raised when put/get with shut-down queue."""
-
-
-if sys.version_info >= (3, 13):
     from asyncio import QueueShutDown as AsyncQueueShutDown
 else:
 
-    class AsyncQueueShutDown(Exception):
+    class ShutDown(Exception):
         """Raised when put/get with shut-down queue."""
+
+    SyncQueueShutDown = ShutDown
+
+    class QueueShutDown(Exception):
+        """Raised when putting on to or getting from a shut-down Queue."""
+
+    AsyncQueueShutDown = QueueShutDown
 
 
 class UnsupportedOperation(ValueError):
