@@ -342,6 +342,46 @@ class Queue(Generic[T]):
 
         self._mutex = mutex
 
+    def peekable(self) -> bool:
+        with self._mutex:
+            return self._peekable()
+
+    def qsize(self) -> int:
+        with self._mutex:
+            return self._qsize()
+
+    def empty(self) -> bool:
+        with self._mutex:
+            return not self._qsize()
+
+    def full(self) -> bool:
+        with self._mutex:
+            return 0 < self._maxsize <= self._qsize()
+
+    def clear(self) -> None:
+        with self._mutex:
+            size = self._qsize()
+            unfinished = max(0, self._unfinished_tasks - size)
+
+            self._clear()
+
+            if not unfinished:
+                self._all_tasks_done.notify_all()
+
+            self._unfinished_tasks = unfinished
+            self._not_full.notify(size)
+
+    def task_done(self) -> None:
+        with self._mutex:
+            unfinished = self._unfinished_tasks - 1
+
+            if not unfinished:
+                self._all_tasks_done.notify_all()
+            elif unfinished < 0:
+                raise ValueError("task_done() called too many times")
+
+            self._unfinished_tasks = unfinished
+
     def shutdown(self, immediate: bool = False) -> None:
         with self._mutex:
             self._is_shutdown = True
@@ -501,28 +541,16 @@ class SyncQueueProxy(SyncQueue[T]):
         self.wrapped = wrapped
 
     def peekable(self) -> bool:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            return wrapped._peekable()
+        return self.wrapped.peekable()
 
     def qsize(self) -> int:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            return wrapped._qsize()
+        return self.wrapped.qsize()
 
     def empty(self) -> bool:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            return not wrapped._qsize()
+        return self.wrapped.empty()
 
     def full(self) -> bool:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            return 0 < wrapped._maxsize <= wrapped._qsize()
+        return self.wrapped.full()
 
     def put(
         self,
@@ -712,32 +740,10 @@ class SyncQueueProxy(SyncQueue[T]):
         return item
 
     def clear(self) -> None:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            size = wrapped._qsize()
-            unfinished = max(0, wrapped._unfinished_tasks - size)
-
-            wrapped._clear()
-
-            if not unfinished:
-                wrapped._all_tasks_done.notify_all()
-
-            wrapped._unfinished_tasks = unfinished
-            wrapped._not_full.notify(size)
+        self.wrapped.clear()
 
     def task_done(self) -> None:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            unfinished = wrapped._unfinished_tasks - 1
-
-            if not unfinished:
-                wrapped._all_tasks_done.notify_all()
-            elif unfinished < 0:
-                raise ValueError("task_done() called too many times")
-
-            wrapped._unfinished_tasks = unfinished
+        self.wrapped.task_done()
 
     def join(self) -> None:
         wrapped = self.wrapped
@@ -796,28 +802,16 @@ class AsyncQueueProxy(AsyncQueue[T]):
         self.wrapped = wrapped
 
     def peekable(self) -> bool:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            return wrapped._peekable()
+        return self.wrapped.peekable()
 
     def qsize(self) -> int:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            return wrapped._qsize()
+        return self.wrapped.qsize()
 
     def empty(self) -> bool:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            return not wrapped._qsize()
+        return self.wrapped.empty()
 
     def full(self) -> bool:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            return 0 < wrapped._maxsize <= wrapped._qsize()
+        return self.wrapped.full()
 
     async def put(self, item: T) -> None:
         wrapped = self.wrapped
@@ -937,32 +931,10 @@ class AsyncQueueProxy(AsyncQueue[T]):
         return item
 
     def clear(self) -> None:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            size = wrapped._qsize()
-            unfinished = max(0, wrapped._unfinished_tasks - size)
-
-            wrapped._clear()
-
-            if not unfinished:
-                wrapped._all_tasks_done.notify_all()
-
-            wrapped._unfinished_tasks = unfinished
-            wrapped._not_full.notify(size)
+        self.wrapped.clear()
 
     def task_done(self) -> None:
-        wrapped = self.wrapped
-
-        with wrapped._mutex:
-            unfinished = wrapped._unfinished_tasks - 1
-
-            if not unfinished:
-                wrapped._all_tasks_done.notify_all()
-            elif unfinished < 0:
-                raise ValueError("task_done() called too many times")
-
-            wrapped._unfinished_tasks = unfinished
+        self.wrapped.task_done()
 
     async def join(self) -> None:
         wrapped = self.wrapped
