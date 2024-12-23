@@ -27,7 +27,7 @@ import time
 
 from heapq import heappop, heappush
 from queue import Empty as SyncQueueEmpty, Full as SyncQueueFull
-from typing import Generic, Optional, Protocol, TypeVar
+from typing import Optional, Protocol, TypeVar
 from asyncio import QueueEmpty as AsyncQueueEmpty, QueueFull as AsyncQueueFull
 from collections import deque
 
