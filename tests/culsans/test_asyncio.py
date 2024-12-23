@@ -157,7 +157,7 @@ class QueueGetTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(asyncio.TimeoutError):
             await asyncio.wait_for(queue.get(), 0.1)
 
-        self.assertEqual(queue.wrapped.not_empty.waiting, 0)
+        self.assertEqual(queue.wrapped.getting, 0)
 
 
 class QueuePutTests(unittest.IsolatedAsyncioTestCase):
@@ -353,11 +353,11 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
 
         # Check that the putter is correctly removed from queue._putters when
         # the task is canceled.
-        self.assertEqual(queue.wrapped.not_full.waiting, 1)
+        self.assertEqual(queue.wrapped.putting, 1)
         put_task.cancel()
         with self.assertRaises(asyncio.CancelledError):
             await put_task
-        self.assertEqual(queue.wrapped.not_full.waiting, 0)
+        self.assertEqual(queue.wrapped.putting, 0)
 
     async def test_cancelled_put_silence_value_error_exception(self):
         # Full Queue.

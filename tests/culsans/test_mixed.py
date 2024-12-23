@@ -119,7 +119,7 @@ class TestMixedQueue:
 
         task = loop.run_in_executor(None, queue.sync_q.put, 1)
 
-        while not queue.not_full.waiting:
+        while not queue.putting:
             await asyncio.sleep(1e-3)
 
         queue.async_q.maxsize = 2  # growing
@@ -129,17 +129,17 @@ class TestMixedQueue:
 
         task = loop.run_in_executor(None, queue.sync_q.put, 2)
 
-        while not queue.not_full.waiting:
+        while not queue.putting:
             await asyncio.sleep(1e-3)
 
         queue.async_q.maxsize = 1  # shrinking
 
-        assert queue.not_full.waiting == 1
+        assert queue.putting == 1
         assert queue.async_q.qsize() == 2
 
         queue.async_q.get_nowait()
 
-        assert queue.not_full.waiting == 1
+        assert queue.putting == 1
         assert queue.async_q.qsize() == 1
 
         queue.async_q.maxsize = 0  # now the queue size is infinite

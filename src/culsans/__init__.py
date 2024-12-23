@@ -706,6 +706,14 @@ class Queue(BaseQueue[T]):
         return AsyncQueueProxy(self)
 
     @property
+    def putting(self) -> int:
+        return self.not_full.waiting  # type: ignore[no-any-return]
+
+    @property
+    def getting(self) -> int:
+        return self.not_empty.waiting  # type: ignore[no-any-return]
+
+    @property
     def unfinished_tasks(self) -> int:
         return self._unfinished_tasks
 
