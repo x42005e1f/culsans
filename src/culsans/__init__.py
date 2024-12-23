@@ -298,12 +298,12 @@ class Queue(BaseQueue[T]):
     __slots__ = (
         "__weakref__",
         "_maxsize",
-        "not_full",
-        "not_empty",
-        "all_tasks_done",
         "_unfinished_tasks",
         "_is_shutdown",
         "mutex",
+        "not_full",
+        "not_empty",
+        "all_tasks_done",
         "data",
     )
 
@@ -311,19 +311,16 @@ class Queue(BaseQueue[T]):
 
     def __init__(self, maxsize: int = 0) -> None:
         self._maxsize = maxsize
-        self._init(maxsize)
+        self._unfinished_tasks = 0
+        self._is_shutdown = False
 
-        mutex = allocate_lock()
+        self.mutex = mutex = allocate_lock()
 
         self.not_full = Condition(mutex)  # putters
         self.not_empty = Condition(mutex)  # getters
         self.all_tasks_done = Condition(mutex)  # joiners
 
-        self._unfinished_tasks = 0
-
-        self._is_shutdown = False
-
-        self.mutex = mutex
+        self._init(maxsize)  # data
 
     def peekable(self) -> bool:
         with self.mutex:
