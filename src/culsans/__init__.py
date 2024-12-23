@@ -43,36 +43,29 @@ from aiologic.lowlevel.thread import (  # type: ignore[import-untyped]
 if sys.version_info >= (3, 13):
     from queue import ShutDown as SyncQueueShutDown
     from asyncio import QueueShutDown as AsyncQueueShutDown
-else:
 
-    class ShutDown(Exception):
+    class QueueShutDown(SyncQueueShutDown, AsyncQueueShutDown):
         """Raised when put/get with shut-down queue."""
 
-    SyncQueueShutDown = ShutDown
+else:
 
     class QueueShutDown(Exception):
-        """Raised when putting on to or getting from a shut-down Queue."""
+        """Raised when put/get with shut-down queue."""
 
+    SyncQueueShutDown = QueueShutDown
     AsyncQueueShutDown = QueueShutDown
-
-
-class UnsupportedOperation(ValueError):
-    """Raised when peek with non-peekable queue."""
-
-
-class QueueEmpty(SyncQueueEmpty, AsyncQueueEmpty):
-    """Raised when non-blocking get with empty queue."""
 
 
 class QueueFull(SyncQueueFull, AsyncQueueFull):
     """Raised when non-blocking put with full queue."""
 
 
-class QueueShutDown(  # type: ignore[no-redef]
-    SyncQueueShutDown,
-    AsyncQueueShutDown,
-):
-    """Raised when put/get with shut-down queue."""
+class QueueEmpty(SyncQueueEmpty, AsyncQueueEmpty):
+    """Raised when non-blocking get with empty queue."""
+
+
+class UnsupportedOperation(ValueError):
+    """Raised when peek with non-peekable queue."""
 
 
 T = TypeVar("T")
