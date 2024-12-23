@@ -289,7 +289,7 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
         """
 
 
-class Queue(Generic[T]):
+class Queue(BaseQueue[T]):
     """Create a queue object with a given maximum size.
 
     If maxsize is <= 0, the queue size is infinite.
