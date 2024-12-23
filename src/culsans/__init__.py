@@ -341,6 +341,74 @@ class Queue(BaseQueue[T]):
         with self._mutex:
             return 0 < self._maxsize <= self._qsize()
 
+    def sync_put(
+        self,
+        item: T,
+        block: bool = True,
+        timeout: Optional[float] = None,
+    ) -> None:
+        rescheduled = False
+
+        with self._mutex:
+            self._check_closing()
+
+            if 0 < self._maxsize:
+                if not block:
+                    if 0 < self._maxsize <= self._qsize():
+                        raise QueueFull
+                elif timeout is None:
+                    while 0 < self._maxsize <= self._qsize():
+                        self._not_full.wait()
+
+                        self._check_closing()
+
+                        rescheduled = True
+                elif timeout < 0:
+                    raise ValueError("'timeout' must be a non-negative number")
+                else:
+                    endtime = time.monotonic() + timeout
+
+                    while 0 < self._maxsize <= self._qsize():
+                        remaining = endtime - time.monotonic()
+
+                        if remaining <= 0:
+                            raise QueueFull
+
+                        self._not_full.wait(remaining)
+
+                        self._check_closing()
+
+                        rescheduled = True
+
+            self._put(item)
+
+            self._unfinished_tasks += 1
+            self._not_empty.notify()
+
+        if not rescheduled:
+            green_checkpoint()
+
+    async def async_put(self, item: T) -> None:
+        rescheduled = False
+
+        with self._mutex:
+            self._check_closing()
+
+            while 0 < self._maxsize <= self._qsize():
+                await self._not_full
+
+                self._check_closing()
+
+                rescheduled = True
+
+            self._put(item)
+
+            self._unfinished_tasks += 1
+            self._not_empty.notify()
+
+        if not rescheduled:
+            await checkpoint()
+
     def put_nowait(self, item: T) -> None:
         with self._mutex:
             self._check_closing()
@@ -353,6 +421,74 @@ class Queue(BaseQueue[T]):
             self._unfinished_tasks += 1
             self._not_empty.notify()
 
+    def sync_get(
+        self,
+        block: bool = True,
+        timeout: Optional[float] = None,
+    ) -> T:
+        rescheduled = False
+
+        with self._mutex:
+            if not block:
+                if not self._qsize():
+                    self._check_closing()
+
+                    raise QueueEmpty
+            elif timeout is None:
+                while not self._qsize():
+                    self._check_closing()
+
+                    self._not_empty.wait()
+
+                    rescheduled = True
+            elif timeout < 0:
+                raise ValueError("'timeout' must be a non-negative number")
+            else:
+                endtime = time.monotonic() + timeout
+
+                while not self._qsize():
+                    self._check_closing()
+
+                    remaining = endtime - time.monotonic()
+
+                    if remaining <= 0:
+                        raise QueueEmpty
+
+                    self._not_empty.wait(remaining)
+
+                    rescheduled = True
+
+            item = self._get()
+
+            if 0 >= self._maxsize or self._maxsize > self._qsize():
+                self._not_full.notify()
+
+        if not rescheduled:
+            green_checkpoint()
+
+        return item
+
+    async def async_get(self) -> T:
+        rescheduled = False
+
+        with self._mutex:
+            while not self._qsize():
+                self._check_closing()
+
+                await self._not_empty
+
+                rescheduled = True
+
+            item = self._get()
+
+            if 0 >= self._maxsize or self._maxsize > self._qsize():
+                self._not_full.notify()
+
+        if not rescheduled:
+            await checkpoint()
+
+        return item
+
     def get_nowait(self) -> T:
         with self._mutex:
             if not self._qsize():
@@ -364,6 +500,80 @@ class Queue(BaseQueue[T]):
 
             if 0 >= self._maxsize or self._maxsize > self._qsize():
                 self._not_full.notify()
+
+        return item
+
+    def sync_peek(
+        self,
+        block: bool = True,
+        timeout: Optional[float] = None,
+    ) -> T:
+        rescheduled = False
+
+        with self._mutex:
+            self._check_peekable()
+
+            if not block:
+                if not self._qsize():
+                    self._check_closing()
+
+                    raise QueueEmpty
+            elif timeout is None:
+                while not self._qsize():
+                    self._check_closing()
+
+                    self._not_empty.wait()
+
+                    rescheduled = True
+            elif timeout < 0:
+                raise ValueError("'timeout' must be a non-negative number")
+            else:
+                endtime = time.monotonic() + timeout
+
+                while not self._qsize():
+                    self._check_closing()
+
+                    remaining = endtime - time.monotonic()
+
+                    if remaining <= 0:
+                        raise QueueEmpty
+
+                    self._not_empty.wait(remaining)
+
+                    rescheduled = True
+
+            try:
+                item = self._peek()
+            finally:
+                if rescheduled:
+                    self._not_empty.notify()
+
+        if not rescheduled:
+            green_checkpoint()
+
+        return item
+
+    async def async_peek(self) -> T:
+        rescheduled = False
+
+        with self._mutex:
+            self._check_peekable()
+
+            while not self._qsize():
+                self._check_closing()
+
+                await self._not_empty
+
+                rescheduled = True
+
+            try:
+                item = self._peek()
+            finally:
+                if rescheduled:
+                    self._not_empty.notify()
+
+        if not rescheduled:
+            await checkpoint()
 
         return item
 
@@ -403,6 +613,30 @@ class Queue(BaseQueue[T]):
                 raise ValueError("task_done() called too many times")
 
             self._unfinished_tasks = unfinished
+
+    def sync_join(self) -> None:
+        rescheduled = False
+
+        with self._mutex:
+            while self._unfinished_tasks:
+                self._all_tasks_done.wait()
+
+                rescheduled = True
+
+        if not rescheduled:
+            green_checkpoint()
+
+    async def async_join(self) -> None:
+        rescheduled = False
+
+        with self._mutex:
+            while self._unfinished_tasks:
+                await self._all_tasks_done
+
+                rescheduled = True
+
+        if not rescheduled:
+            await checkpoint()
 
     def shutdown(self, immediate: bool = False) -> None:
         with self._mutex:
@@ -588,147 +822,19 @@ class SyncQueueProxy(SyncQueue[T]):
         block: bool = True,
         timeout: Optional[float] = None,
     ) -> None:
-        wrapped = self.wrapped
-
-        rescheduled = False
-
-        with wrapped._mutex:
-            wrapped._check_closing()
-
-            if 0 < wrapped._maxsize:
-                if not block:
-                    if 0 < wrapped._maxsize <= wrapped._qsize():
-                        raise QueueFull
-                elif timeout is None:
-                    while 0 < wrapped._maxsize <= wrapped._qsize():
-                        wrapped._not_full.wait()
-
-                        wrapped._check_closing()
-
-                        rescheduled = True
-                elif timeout < 0:
-                    raise ValueError("'timeout' must be a non-negative number")
-                else:
-                    endtime = time.monotonic() + timeout
-
-                    while 0 < wrapped._maxsize <= wrapped._qsize():
-                        remaining = endtime - time.monotonic()
-
-                        if remaining <= 0:
-                            raise QueueFull
-
-                        wrapped._not_full.wait(remaining)
-
-                        wrapped._check_closing()
-
-                        rescheduled = True
-
-            wrapped._put(item)
-
-            wrapped._unfinished_tasks += 1
-            wrapped._not_empty.notify()
-
-        if not rescheduled:
-            green_checkpoint()
+        self.wrapped.sync_put(item, block, timeout)
 
     def put_nowait(self, item: T) -> None:
         self.wrapped.put_nowait(item)
 
     def get(self, block: bool = True, timeout: Optional[float] = None) -> T:
-        wrapped = self.wrapped
-
-        rescheduled = False
-
-        with wrapped._mutex:
-            if not block:
-                if not wrapped._qsize():
-                    wrapped._check_closing()
-
-                    raise QueueEmpty
-            elif timeout is None:
-                while not wrapped._qsize():
-                    wrapped._check_closing()
-
-                    wrapped._not_empty.wait()
-
-                    rescheduled = True
-            elif timeout < 0:
-                raise ValueError("'timeout' must be a non-negative number")
-            else:
-                endtime = time.monotonic() + timeout
-
-                while not wrapped._qsize():
-                    wrapped._check_closing()
-
-                    remaining = endtime - time.monotonic()
-
-                    if remaining <= 0:
-                        raise QueueEmpty
-
-                    wrapped._not_empty.wait(remaining)
-
-                    rescheduled = True
-
-            item = wrapped._get()
-
-            if 0 >= wrapped._maxsize or wrapped._maxsize > wrapped._qsize():
-                wrapped._not_full.notify()
-
-        if not rescheduled:
-            green_checkpoint()
-
-        return item
+        return self.wrapped.sync_get(block, timeout)
 
     def get_nowait(self) -> T:
         return self.wrapped.get_nowait()
 
     def peek(self, block: bool = True, timeout: Optional[float] = None) -> T:
-        wrapped = self.wrapped
-
-        rescheduled = False
-
-        with wrapped._mutex:
-            wrapped._check_peekable()
-
-            if not block:
-                if not wrapped._qsize():
-                    wrapped._check_closing()
-
-                    raise QueueEmpty
-            elif timeout is None:
-                while not wrapped._qsize():
-                    wrapped._check_closing()
-
-                    wrapped._not_empty.wait()
-
-                    rescheduled = True
-            elif timeout < 0:
-                raise ValueError("'timeout' must be a non-negative number")
-            else:
-                endtime = time.monotonic() + timeout
-
-                while not wrapped._qsize():
-                    wrapped._check_closing()
-
-                    remaining = endtime - time.monotonic()
-
-                    if remaining <= 0:
-                        raise QueueEmpty
-
-                    wrapped._not_empty.wait(remaining)
-
-                    rescheduled = True
-
-            try:
-                item = wrapped._peek()
-            finally:
-                if rescheduled:
-                    wrapped._not_empty.notify()
-
-        if not rescheduled:
-            green_checkpoint()
-
-        return item
+        return self.wrapped.sync_peek(block, timeout)
 
     def peek_nowait(self) -> T:
         return self.wrapped.peek_nowait()
@@ -740,18 +846,7 @@ class SyncQueueProxy(SyncQueue[T]):
         self.wrapped.task_done()
 
     def join(self) -> None:
-        wrapped = self.wrapped
-
-        rescheduled = False
-
-        with wrapped._mutex:
-            while wrapped._unfinished_tasks:
-                wrapped._all_tasks_done.wait()
-
-                rescheduled = True
-
-        if not rescheduled:
-            green_checkpoint()
+        self.wrapped.sync_join()
 
     def shutdown(self, immediate: bool = False) -> None:
         self.wrapped.shutdown(immediate)
@@ -796,82 +891,19 @@ class AsyncQueueProxy(AsyncQueue[T]):
         return self.wrapped.full()
 
     async def put(self, item: T) -> None:
-        wrapped = self.wrapped
-
-        rescheduled = False
-
-        with wrapped._mutex:
-            wrapped._check_closing()
-
-            while 0 < wrapped._maxsize <= wrapped._qsize():
-                await wrapped._not_full
-
-                wrapped._check_closing()
-
-                rescheduled = True
-
-            wrapped._put(item)
-
-            wrapped._unfinished_tasks += 1
-            wrapped._not_empty.notify()
-
-        if not rescheduled:
-            await checkpoint()
+        await self.wrapped.async_put(item)
 
     def put_nowait(self, item: T) -> None:
         self.wrapped.put_nowait(item)
 
     async def get(self) -> T:
-        wrapped = self.wrapped
-
-        rescheduled = False
-
-        with wrapped._mutex:
-            while not wrapped._qsize():
-                wrapped._check_closing()
-
-                await wrapped._not_empty
-
-                rescheduled = True
-
-            item = wrapped._get()
-
-            if 0 >= wrapped._maxsize or wrapped._maxsize > wrapped._qsize():
-                wrapped._not_full.notify()
-
-        if not rescheduled:
-            await checkpoint()
-
-        return item
+        return await self.wrapped.async_get()
 
     def get_nowait(self) -> T:
         return self.wrapped.get_nowait()
 
     async def peek(self) -> T:
-        wrapped = self.wrapped
-
-        rescheduled = False
-
-        with wrapped._mutex:
-            wrapped._check_peekable()
-
-            while not wrapped._qsize():
-                wrapped._check_closing()
-
-                await wrapped._not_empty
-
-                rescheduled = True
-
-            try:
-                item = wrapped._peek()
-            finally:
-                if rescheduled:
-                    wrapped._not_empty.notify()
-
-        if not rescheduled:
-            await checkpoint()
-
-        return item
+        return await self.wrapped.async_peek()
 
     def peek_nowait(self) -> T:
         return self.wrapped.peek_nowait()
@@ -883,18 +915,7 @@ class AsyncQueueProxy(AsyncQueue[T]):
         self.wrapped.task_done()
 
     async def join(self) -> None:
-        wrapped = self.wrapped
-
-        rescheduled = False
-
-        with wrapped._mutex:
-            while wrapped._unfinished_tasks:
-                await wrapped._all_tasks_done
-
-                rescheduled = True
-
-        if not rescheduled:
-            await checkpoint()
+        await self.wrapped.async_join()
 
     def shutdown(self, immediate: bool = False) -> None:
         self.wrapped.shutdown(immediate)
