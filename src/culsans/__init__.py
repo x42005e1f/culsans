@@ -298,12 +298,12 @@ class Queue(BaseQueue[T]):
     __slots__ = (
         "__weakref__",
         "_maxsize",
-        "_not_full",
-        "_not_empty",
-        "_all_tasks_done",
+        "not_full",
+        "not_empty",
+        "all_tasks_done",
         "_unfinished_tasks",
         "_is_shutdown",
-        "_mutex",
+        "mutex",
         "data",
     )
 
@@ -315,30 +315,30 @@ class Queue(BaseQueue[T]):
 
         mutex = allocate_lock()
 
-        self._not_full = Condition(mutex)  # putters
-        self._not_empty = Condition(mutex)  # getters
-        self._all_tasks_done = Condition(mutex)  # joiners
+        self.not_full = Condition(mutex)  # putters
+        self.not_empty = Condition(mutex)  # getters
+        self.all_tasks_done = Condition(mutex)  # joiners
 
         self._unfinished_tasks = 0
 
         self._is_shutdown = False
 
-        self._mutex = mutex
+        self.mutex = mutex
 
     def peekable(self) -> bool:
-        with self._mutex:
+        with self.mutex:
             return self._peekable()
 
     def qsize(self) -> int:
-        with self._mutex:
+        with self.mutex:
             return self._qsize()
 
     def empty(self) -> bool:
-        with self._mutex:
+        with self.mutex:
             return not self._qsize()
 
     def full(self) -> bool:
-        with self._mutex:
+        with self.mutex:
             return 0 < self._maxsize <= self._qsize()
 
     def sync_put(
@@ -349,7 +349,7 @@ class Queue(BaseQueue[T]):
     ) -> None:
         rescheduled = False
 
-        with self._mutex:
+        with self.mutex:
             self._check_closing()
 
             if 0 < self._maxsize:
@@ -358,7 +358,7 @@ class Queue(BaseQueue[T]):
                         raise QueueFull
                 elif timeout is None:
                     while 0 < self._maxsize <= self._qsize():
-                        self._not_full.wait()
+                        self.not_full.wait()
 
                         self._check_closing()
 
@@ -374,7 +374,7 @@ class Queue(BaseQueue[T]):
                         if remaining <= 0:
                             raise QueueFull
 
-                        self._not_full.wait(remaining)
+                        self.not_full.wait(remaining)
 
                         self._check_closing()
 
@@ -383,7 +383,7 @@ class Queue(BaseQueue[T]):
             self._put(item)
 
             self._unfinished_tasks += 1
-            self._not_empty.notify()
+            self.not_empty.notify()
 
         if not rescheduled:
             green_checkpoint()
@@ -391,11 +391,11 @@ class Queue(BaseQueue[T]):
     async def async_put(self, item: T) -> None:
         rescheduled = False
 
-        with self._mutex:
+        with self.mutex:
             self._check_closing()
 
             while 0 < self._maxsize <= self._qsize():
-                await self._not_full
+                await self.not_full
 
                 self._check_closing()
 
@@ -404,13 +404,13 @@ class Queue(BaseQueue[T]):
             self._put(item)
 
             self._unfinished_tasks += 1
-            self._not_empty.notify()
+            self.not_empty.notify()
 
         if not rescheduled:
             await checkpoint()
 
     def put_nowait(self, item: T) -> None:
-        with self._mutex:
+        with self.mutex:
             self._check_closing()
 
             if 0 < self._maxsize <= self._qsize():
@@ -419,7 +419,7 @@ class Queue(BaseQueue[T]):
             self._put(item)
 
             self._unfinished_tasks += 1
-            self._not_empty.notify()
+            self.not_empty.notify()
 
     def sync_get(
         self,
@@ -428,7 +428,7 @@ class Queue(BaseQueue[T]):
     ) -> T:
         rescheduled = False
 
-        with self._mutex:
+        with self.mutex:
             if not block:
                 if not self._qsize():
                     self._check_closing()
@@ -438,7 +438,7 @@ class Queue(BaseQueue[T]):
                 while not self._qsize():
                     self._check_closing()
 
-                    self._not_empty.wait()
+                    self.not_empty.wait()
 
                     rescheduled = True
             elif timeout < 0:
@@ -454,14 +454,14 @@ class Queue(BaseQueue[T]):
                     if remaining <= 0:
                         raise QueueEmpty
 
-                    self._not_empty.wait(remaining)
+                    self.not_empty.wait(remaining)
 
                     rescheduled = True
 
             item = self._get()
 
             if 0 >= self._maxsize or self._maxsize > self._qsize():
-                self._not_full.notify()
+                self.not_full.notify()
 
         if not rescheduled:
             green_checkpoint()
@@ -471,18 +471,18 @@ class Queue(BaseQueue[T]):
     async def async_get(self) -> T:
         rescheduled = False
 
-        with self._mutex:
+        with self.mutex:
             while not self._qsize():
                 self._check_closing()
 
-                await self._not_empty
+                await self.not_empty
 
                 rescheduled = True
 
             item = self._get()
 
             if 0 >= self._maxsize or self._maxsize > self._qsize():
-                self._not_full.notify()
+                self.not_full.notify()
 
         if not rescheduled:
             await checkpoint()
@@ -490,7 +490,7 @@ class Queue(BaseQueue[T]):
         return item
 
     def get_nowait(self) -> T:
-        with self._mutex:
+        with self.mutex:
             if not self._qsize():
                 self._check_closing()
 
@@ -499,7 +499,7 @@ class Queue(BaseQueue[T]):
             item = self._get()
 
             if 0 >= self._maxsize or self._maxsize > self._qsize():
-                self._not_full.notify()
+                self.not_full.notify()
 
         return item
 
@@ -510,7 +510,7 @@ class Queue(BaseQueue[T]):
     ) -> T:
         rescheduled = False
 
-        with self._mutex:
+        with self.mutex:
             self._check_peekable()
 
             if not block:
@@ -522,7 +522,7 @@ class Queue(BaseQueue[T]):
                 while not self._qsize():
                     self._check_closing()
 
-                    self._not_empty.wait()
+                    self.not_empty.wait()
 
                     rescheduled = True
             elif timeout < 0:
@@ -538,7 +538,7 @@ class Queue(BaseQueue[T]):
                     if remaining <= 0:
                         raise QueueEmpty
 
-                    self._not_empty.wait(remaining)
+                    self.not_empty.wait(remaining)
 
                     rescheduled = True
 
@@ -546,7 +546,7 @@ class Queue(BaseQueue[T]):
                 item = self._peek()
             finally:
                 if rescheduled:
-                    self._not_empty.notify()
+                    self.not_empty.notify()
 
         if not rescheduled:
             green_checkpoint()
@@ -556,13 +556,13 @@ class Queue(BaseQueue[T]):
     async def async_peek(self) -> T:
         rescheduled = False
 
-        with self._mutex:
+        with self.mutex:
             self._check_peekable()
 
             while not self._qsize():
                 self._check_closing()
 
-                await self._not_empty
+                await self.not_empty
 
                 rescheduled = True
 
@@ -570,7 +570,7 @@ class Queue(BaseQueue[T]):
                 item = self._peek()
             finally:
                 if rescheduled:
-                    self._not_empty.notify()
+                    self.not_empty.notify()
 
         if not rescheduled:
             await checkpoint()
@@ -578,7 +578,7 @@ class Queue(BaseQueue[T]):
         return item
 
     def peek_nowait(self) -> T:
-        with self._mutex:
+        with self.mutex:
             self._check_peekable()
 
             if not self._qsize():
@@ -591,24 +591,24 @@ class Queue(BaseQueue[T]):
         return item
 
     def clear(self) -> None:
-        with self._mutex:
+        with self.mutex:
             size = self._qsize()
             unfinished = max(0, self._unfinished_tasks - size)
 
             self._clear()
 
             if not unfinished:
-                self._all_tasks_done.notify_all()
+                self.all_tasks_done.notify_all()
 
             self._unfinished_tasks = unfinished
-            self._not_full.notify(size)
+            self.not_full.notify(size)
 
     def task_done(self) -> None:
-        with self._mutex:
+        with self.mutex:
             unfinished = self._unfinished_tasks - 1
 
             if not unfinished:
-                self._all_tasks_done.notify_all()
+                self.all_tasks_done.notify_all()
             elif unfinished < 0:
                 raise ValueError("task_done() called too many times")
 
@@ -617,9 +617,9 @@ class Queue(BaseQueue[T]):
     def sync_join(self) -> None:
         rescheduled = False
 
-        with self._mutex:
+        with self.mutex:
             while self._unfinished_tasks:
-                self._all_tasks_done.wait()
+                self.all_tasks_done.wait()
 
                 rescheduled = True
 
@@ -629,9 +629,9 @@ class Queue(BaseQueue[T]):
     async def async_join(self) -> None:
         rescheduled = False
 
-        with self._mutex:
+        with self.mutex:
             while self._unfinished_tasks:
-                await self._all_tasks_done
+                await self.all_tasks_done
 
                 rescheduled = True
 
@@ -639,7 +639,7 @@ class Queue(BaseQueue[T]):
             await checkpoint()
 
     def shutdown(self, immediate: bool = False) -> None:
-        with self._mutex:
+        with self.mutex:
             self._is_shutdown = True
 
             if immediate:
@@ -649,10 +649,10 @@ class Queue(BaseQueue[T]):
                     if self._unfinished_tasks > 0:
                         self._unfinished_tasks -= 1
 
-                self._all_tasks_done.notify_all()
+                self.all_tasks_done.notify_all()
 
-            self._not_empty.notify_all()
-            self._not_full.notify_all()
+            self.not_empty.notify_all()
+            self.not_full.notify_all()
 
     def close(self) -> None:
         self.shutdown(immediate=True)
@@ -726,13 +726,13 @@ class Queue(BaseQueue[T]):
 
     @maxsize.setter
     def maxsize(self, value: int) -> None:
-        with self._mutex:
+        with self.mutex:
             maxsize = self._maxsize
 
             if value <= 0:
-                self._not_full.notify_all()
+                self.not_full.notify_all()
             elif value > maxsize:
-                self._not_full.notify(value - maxsize)
+                self.not_full.notify(value - maxsize)
 
             self._maxsize = value
 
