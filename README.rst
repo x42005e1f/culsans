@@ -376,4 +376,5 @@ repository on GitHub <https://github.com/x42005e1f/culsans>`_.
 License
 =======
 
-The ``culsans`` library is offered under Zero-Clause BSD license.
+The ``culsans`` library is offered under the
+`BSD Zero Clause License <https://spdx.org/licenses/0BSD.html>`_.
