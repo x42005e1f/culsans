@@ -378,8 +378,8 @@ class Queue(BaseQueue[T]):
                         rescheduled = True
 
             self._put(item)
-
             self._unfinished_tasks += 1
+
             self.not_empty.notify()
 
         if not rescheduled:
@@ -399,8 +399,8 @@ class Queue(BaseQueue[T]):
                 rescheduled = True
 
             self._put(item)
-
             self._unfinished_tasks += 1
+
             self.not_empty.notify()
 
         if not rescheduled:
@@ -414,8 +414,8 @@ class Queue(BaseQueue[T]):
                 raise QueueFull
 
             self._put(item)
-
             self._unfinished_tasks += 1
+
             self.not_empty.notify()
 
     def sync_get(
@@ -604,10 +604,11 @@ class Queue(BaseQueue[T]):
         with self.mutex:
             unfinished = self._unfinished_tasks - 1
 
-            if not unfinished:
+            if unfinished <= 0:
+                if unfinished < 0:
+                    raise ValueError("task_done() called too many times")
+
                 self.all_tasks_done.notify_all()
-            elif unfinished < 0:
-                raise ValueError("task_done() called too many times")
 
             self._unfinished_tasks = unfinished
 
