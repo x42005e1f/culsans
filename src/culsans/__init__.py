@@ -17,6 +17,7 @@ __all__ = (
     "BaseQueue",
     "SyncQueue",
     "AsyncQueue",
+    "MixedQueue",
     "Queue",
     "LifoQueue",
     "PriorityQueue",
@@ -282,7 +283,46 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
         """
 
 
-class Queue(BaseQueue[T]):
+class MixedQueue(BaseQueue[T], Protocol[T]):
+    __slots__ = ()
+
+    def sync_put(
+        self,
+        item: T,
+        block: bool = True,
+        timeout: Optional[float] = None,
+    ) -> None: ...
+
+    async def async_put(self, item: T) -> None: ...
+
+    def sync_get(
+        self,
+        block: bool = True,
+        timeout: Optional[float] = None,
+    ) -> T: ...
+
+    async def async_get(self) -> T: ...
+
+    def sync_peek(
+        self,
+        block: bool = True,
+        timeout: Optional[float] = None,
+    ) -> T: ...
+
+    async def async_peek(self) -> T: ...
+
+    def sync_join(self) -> None: ...
+
+    async def async_join(self) -> None: ...
+
+    @property
+    def sync_q(self) -> SyncQueue[T]: ...
+
+    @property
+    def async_q(self) -> AsyncQueue[T]: ...
+
+
+class Queue(MixedQueue[T]):
     """Create a queue object with a given maximum size.
 
     If maxsize is <= 0, the queue size is infinite.
@@ -800,7 +840,7 @@ class PriorityQueue(Queue[T]):
 class SyncQueueProxy(SyncQueue[T]):
     __slots__ = ("wrapped",)
 
-    def __init__(self, wrapped: Queue[T]) -> None:
+    def __init__(self, wrapped: MixedQueue[T]) -> None:
         self.wrapped = wrapped
 
     def peekable(self) -> bool:
@@ -874,7 +914,7 @@ class SyncQueueProxy(SyncQueue[T]):
 class AsyncQueueProxy(AsyncQueue[T]):
     __slots__ = ("wrapped",)
 
-    def __init__(self, wrapped: Queue[T]) -> None:
+    def __init__(self, wrapped: MixedQueue[T]) -> None:
         self.wrapped = wrapped
 
     def peekable(self) -> bool:
