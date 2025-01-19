@@ -118,7 +118,7 @@ def measure(library):
                     subprocess.run(
                         [executable, str(workdir / f"bench_{library}.py")],
                         capture_output=True,
-                        timeout=10,
+                        timeout=30,
                         check=True,
                     ).stdout
                 )
