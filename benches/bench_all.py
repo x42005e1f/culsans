@@ -80,7 +80,7 @@ def print_table(header, data):
         humanized_values = [
             (
                 f"{relative_value - 1:>+5.2%}"
-                if relative_value != 1 and abs(relative_value - 1) < 1
+                if relative_value != 1 and abs(relative_value - 1) < 0.5
                 else f"\u0078{relative_value:>4.2f}"
             )
             for relative_value in relative_values
