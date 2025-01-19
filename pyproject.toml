@@ -38,7 +38,7 @@ classifiers = [
 ]
 
 [project.urls]
-Source = "https://github.com/x42005e1f/culsans"
+GitHub = "https://github.com/x42005e1f/culsans"
 
 [tool.codespell]
 skip = [
