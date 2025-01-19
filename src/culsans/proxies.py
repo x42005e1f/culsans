@@ -3,12 +3,14 @@
 # SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: ISC
 
+from __future__ import annotations
+
 __all__ = (
-    "SyncQueueProxy",
     "AsyncQueueProxy",
+    "SyncQueueProxy",
 )
 
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 from .protocols import AsyncQueue, MixedQueue, SyncQueue
 
@@ -37,20 +39,20 @@ class SyncQueueProxy(SyncQueue[T]):
         self,
         item: T,
         block: bool = True,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> None:
         self.wrapped.sync_put(item, block, timeout)
 
     def put_nowait(self, item: T) -> None:
         self.wrapped.put_nowait(item)
 
-    def get(self, block: bool = True, timeout: Optional[float] = None) -> T:
+    def get(self, block: bool = True, timeout: float | None = None) -> T:
         return self.wrapped.sync_get(block, timeout)
 
     def get_nowait(self) -> T:
         return self.wrapped.get_nowait()
 
-    def peek(self, block: bool = True, timeout: Optional[float] = None) -> T:
+    def peek(self, block: bool = True, timeout: float | None = None) -> T:
         return self.wrapped.sync_peek(block, timeout)
 
     def peek_nowait(self) -> T:

@@ -6,6 +6,7 @@
 import asyncio
 
 import pytest
+
 import culsans
 
 
@@ -29,7 +30,7 @@ class TestMixedQueue:
 
             assert async_q.empty()
 
-        for i in range(3):
+        for _ in range(3):
             await asyncio.gather(
                 loop.run_in_executor(None, sync_run, queue.sync_q),
                 async_run(queue.async_q),
@@ -52,7 +53,7 @@ class TestMixedQueue:
             for i in range(5):
                 await async_q.put(i)
 
-        for i in range(3):
+        for _ in range(3):
             await asyncio.gather(
                 loop.run_in_executor(None, sync_run, queue.sync_q),
                 async_run(queue.async_q),
@@ -79,7 +80,7 @@ class TestMixedQueue:
 
             assert async_q.empty()
 
-        for i in range(3):
+        for _ in range(3):
             await asyncio.gather(
                 loop.run_in_executor(None, sync_run, queue.sync_q),
                 async_run(queue.async_q),
@@ -106,7 +107,7 @@ class TestMixedQueue:
 
             await async_q.join()
 
-        for i in range(3):
+        for _ in range(3):
             await asyncio.gather(
                 loop.run_in_executor(None, sync_run, queue.sync_q),
                 async_run(queue.async_q),

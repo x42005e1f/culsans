@@ -3,17 +3,19 @@
 # SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: ISC
 
+from __future__ import annotations
+
 __all__ = (
-    "Queue",
     "LifoQueue",
     "PriorityQueue",
+    "Queue",
 )
 
 import time
 
-from heapq import heappop, heappush
-from typing import Optional, TypeVar
 from collections import deque
+from heapq import heappop, heappush
+from typing import TypeVar
 
 from aiologic import Condition  # type: ignore[import-untyped]
 from aiologic.lowlevel import (  # type: ignore[import-untyped]
@@ -24,14 +26,14 @@ from aiologic.lowlevel.thread import (  # type: ignore[import-untyped]
     allocate_lock,
 )
 
-from .proxies import AsyncQueueProxy, SyncQueueProxy
-from .protocols import SyncQueue, MixedQueue, AsyncQueue
 from .exceptions import (
-    QueueFull,
     QueueEmpty,
+    QueueFull,
     QueueShutDown,
     UnsupportedOperation,
 )
+from .protocols import AsyncQueue, MixedQueue, SyncQueue
+from .proxies import AsyncQueueProxy, SyncQueueProxy
 
 T = TypeVar("T")
 
@@ -44,14 +46,14 @@ class Queue(MixedQueue[T]):
 
     __slots__ = (
         "__weakref__",
+        "_is_shutdown",
         "_maxsize",
         "_unfinished_tasks",
-        "_is_shutdown",
-        "mutex",
-        "not_full",
-        "not_empty",
         "all_tasks_done",
         "data",
+        "mutex",
+        "not_empty",
+        "not_full",
     )
 
     data: deque[T]
@@ -89,7 +91,7 @@ class Queue(MixedQueue[T]):
         self,
         item: T,
         block: bool = True,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> None:
         rescheduled = False
 
@@ -108,7 +110,8 @@ class Queue(MixedQueue[T]):
 
                         rescheduled = True
                 elif timeout < 0:
-                    raise ValueError("'timeout' must be a non-negative number")
+                    msg = "'timeout' must be a non-negative number"
+                    raise ValueError(msg)
                 else:
                     endtime = time.monotonic() + timeout
 
@@ -165,11 +168,7 @@ class Queue(MixedQueue[T]):
 
             self.not_empty.notify()
 
-    def sync_get(
-        self,
-        block: bool = True,
-        timeout: Optional[float] = None,
-    ) -> T:
+    def sync_get(self, block: bool = True, timeout: float | None = None) -> T:
         rescheduled = False
 
         with self.mutex:
@@ -186,7 +185,8 @@ class Queue(MixedQueue[T]):
 
                     rescheduled = True
             elif timeout < 0:
-                raise ValueError("'timeout' must be a non-negative number")
+                msg = "'timeout' must be a non-negative number"
+                raise ValueError(msg)
             else:
                 endtime = time.monotonic() + timeout
 
@@ -247,11 +247,7 @@ class Queue(MixedQueue[T]):
 
         return item
 
-    def sync_peek(
-        self,
-        block: bool = True,
-        timeout: Optional[float] = None,
-    ) -> T:
+    def sync_peek(self, block: bool = True, timeout: float | None = None) -> T:
         rescheduled = False
 
         with self.mutex:
@@ -270,7 +266,8 @@ class Queue(MixedQueue[T]):
 
                     rescheduled = True
             elif timeout < 0:
-                raise ValueError("'timeout' must be a non-negative number")
+                msg = "'timeout' must be a non-negative number"
+                raise ValueError(msg)
             else:
                 endtime = time.monotonic() + timeout
 
@@ -353,7 +350,8 @@ class Queue(MixedQueue[T]):
 
             if unfinished <= 0:
                 if unfinished < 0:
-                    raise ValueError("task_done() called too many times")
+                    msg = "task_done() called too many times"
+                    raise ValueError(msg)
 
                 self.all_tasks_done.notify_all()
 
@@ -404,7 +402,8 @@ class Queue(MixedQueue[T]):
 
     async def wait_closed(self) -> None:
         if not self._is_shutdown:
-            raise RuntimeError("Waiting for non-closed queue")
+            msg = "Waiting for non-closed queue"
+            raise RuntimeError(msg)
 
         await checkpoint()
 
@@ -414,7 +413,8 @@ class Queue(MixedQueue[T]):
 
     def _check_peekable(self) -> None:
         if not self._peekable():
-            raise UnsupportedOperation("peeking not supported")
+            msg = "peeking not supported"
+            raise UnsupportedOperation(msg)
 
     def _check_closing(self) -> None:
         if self._is_shutdown:

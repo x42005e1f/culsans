@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: 0BSD
 
 import pytest
+
 import culsans
 
 
@@ -32,11 +33,11 @@ class _TestQueueBase:
         assert queue.async_q.maxsize == 0
 
         with pytest.raises(AttributeError):
-            queue.nonexistent_attribute
+            queue.nonexistent_attribute  # noqa: B018
         with pytest.raises(AttributeError):
-            queue.sync_q.nonexistent_attribute
+            queue.sync_q.nonexistent_attribute  # noqa: B018
         with pytest.raises(AttributeError):
-            queue.async_q.nonexistent_attribute
+            queue.async_q.nonexistent_attribute  # noqa: B018
 
     def test_setters(self):
         queue = self.factory()

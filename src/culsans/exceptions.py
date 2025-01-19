@@ -4,26 +4,26 @@
 # SPDX-License-Identifier: ISC
 
 __all__ = (
-    "UnsupportedOperation",
+    "AsyncQueueEmpty",
+    "AsyncQueueFull",
+    "AsyncQueueShutDown",
     "QueueEmpty",
     "QueueFull",
     "QueueShutDown",
     "SyncQueueEmpty",
     "SyncQueueFull",
     "SyncQueueShutDown",
-    "AsyncQueueEmpty",
-    "AsyncQueueFull",
-    "AsyncQueueShutDown",
+    "UnsupportedOperation",
 )
 
 import sys
 
-from queue import Empty as SyncQueueEmpty, Full as SyncQueueFull
 from asyncio import QueueEmpty as AsyncQueueEmpty, QueueFull as AsyncQueueFull
+from queue import Empty as SyncQueueEmpty, Full as SyncQueueFull
 
 if sys.version_info >= (3, 13):
-    from queue import ShutDown as SyncQueueShutDown
     from asyncio import QueueShutDown as AsyncQueueShutDown
+    from queue import ShutDown as SyncQueueShutDown
 
     class QueueShutDown(SyncQueueShutDown, AsyncQueueShutDown):
         """Raised when put/get with shut-down queue."""

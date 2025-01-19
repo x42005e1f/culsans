@@ -3,14 +3,16 @@
 # SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: ISC
 
+from __future__ import annotations
+
 __all__ = (
-    "BaseQueue",
-    "SyncQueue",
     "AsyncQueue",
+    "BaseQueue",
     "MixedQueue",
+    "SyncQueue",
 )
 
-from typing import Optional, Protocol, TypeVar
+from typing import Protocol, TypeVar
 
 T = TypeVar("T")
 
@@ -129,7 +131,7 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         self,
         item: T,
         block: bool = True,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> None:
         """Put an item into the queue.
 
@@ -144,7 +146,7 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         Raises QueueShutDown if the queue has been shut down.
         """
 
-    def get(self, block: bool = True, timeout: Optional[float] = None) -> T:
+    def get(self, block: bool = True, timeout: float | None = None) -> T:
         """Remove and return an item from the queue.
 
         If optional args 'block' is True and 'timeout' is None (the default),
@@ -159,7 +161,7 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         if the queue has been shut down immediately.
         """
 
-    def peek(self, block: bool = True, timeout: Optional[float] = None) -> T:
+    def peek(self, block: bool = True, timeout: float | None = None) -> T:
         """Return an item from the queue without removing it.
 
         If optional args 'block' is True and 'timeout' is None (the default),
@@ -233,7 +235,7 @@ class MixedQueue(BaseQueue[T], Protocol[T]):
         self,
         item: T,
         block: bool = True,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> None: ...
 
     async def async_put(self, item: T) -> None: ...
@@ -241,7 +243,7 @@ class MixedQueue(BaseQueue[T], Protocol[T]):
     def sync_get(
         self,
         block: bool = True,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> T: ...
 
     async def async_get(self) -> T: ...
@@ -249,7 +251,7 @@ class MixedQueue(BaseQueue[T], Protocol[T]):
     def sync_peek(
         self,
         block: bool = True,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> T: ...
 
     async def async_peek(self) -> T: ...

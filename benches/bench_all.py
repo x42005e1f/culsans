@@ -3,8 +3,8 @@
 # SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: 0BSD
 
-import sys
 import subprocess
+import sys
 
 from pathlib import Path
 
@@ -61,12 +61,10 @@ def print_table(header, data):
     print()
     print(end="|")
     print(
-        end="|".join(
-            [
-                f"{'python':^{table_column_width}}",
-                *(f"{library:^{table_column_width}}" for library in libraries),
-            ]
-        )
+        end="|".join([
+            f"{'python':^{table_column_width}}",
+            *(f"{library:^{table_column_width}}" for library in libraries),
+        ])
     )
     print(end="|")
     print()
@@ -82,22 +80,20 @@ def print_table(header, data):
             (
                 f"{relative_value - 1:>+5.2%}"
                 if relative_value != 1 and abs(relative_value - 1) < 1
-                else f"×{relative_value:>4.2f}"
+                else f"\u0078{relative_value:>4.2f}"
             )
             for relative_value in relative_values
         ]
 
         print(end="|")
         print(
-            end="|".join(
-                [
-                    f" {executable:<{table_column_width - 1}}",
-                    *(
-                        f"{humanized_value:^{table_column_width}}"
-                        for humanized_value in humanized_values
-                    ),
-                ]
-            )
+            end="|".join([
+                f" {executable:<{table_column_width - 1}}",
+                *(
+                    f"{humanized_value:^{table_column_width}}"
+                    for humanized_value in humanized_values
+                ),
+            ])
         )
         print(end="|")
         print()
