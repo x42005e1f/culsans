@@ -30,3 +30,13 @@ from .queues import (
     PriorityQueue as PriorityQueue,
     Queue as Queue,
 )
+
+# modify __module__ for shorter repr()
+for __value in list(globals().values()):
+    if getattr(__value, "__module__", "").startswith(f"{__name__}."):
+        try:
+            __value.__module__ = __name__
+        except AttributeError:
+            pass
+
+    del __value
