@@ -247,29 +247,112 @@ class MixedQueue(BaseQueue[T], Protocol[T]):
         item: T,
         block: bool = True,
         timeout: float | None = None,
-    ) -> None: ...
+    ) -> None:
+        """Put an item into the queue.
 
-    async def async_put(self, item: T) -> None: ...
+        If optional args 'block' is True and 'timeout' is None (the default),
+        block if necessary until a free slot is available. If 'timeout' is
+        a non-negative number, it blocks at most 'timeout' seconds and raises
+        the QueueFull exception if no free slot was available within that time.
+        Otherwise ('block' is False), put an item on the queue if a free slot
+        is immediately available, else raise the QueueFull exception
+        ('timeout' is ignored in that case).
+
+        Raises QueueShutDown if the queue has been shut down.
+        """
+        ...
+
+    async def async_put(self, item: T) -> None:
+        """Put an item into the queue.
+
+        If the queue is full, wait until a free slot is available before adding
+        item.
+
+        Raises QueueShutDown if the queue has been shut down.
+        """
+        ...
 
     def sync_get(
         self,
         block: bool = True,
         timeout: float | None = None,
-    ) -> T: ...
+    ) -> T:
+        """Remove and return an item from the queue.
 
-    async def async_get(self) -> T: ...
+        If optional args 'block' is True and 'timeout' is None (the default),
+        block if necessary until an item is available. If 'timeout' is
+        a non-negative number, it blocks at most 'timeout' seconds and raises
+        the QueueEmpty exception if no item was available within that time.
+        Otherwise ('block' is False), return an item if one is immediately
+        available, else raise the QueueEmpty exception ('timeout' is ignored in
+        that case).
+
+        Raises QueueShutDown if the queue has been shut down and is empty, or
+        if the queue has been shut down immediately.
+        """
+        ...
+
+    async def async_get(self) -> T:
+        """Remove and return an item from the queue.
+
+        If queue is empty, wait until an item is available.
+
+        Raises QueueShutDown if the queue has been shut down and is empty, or
+        if the queue has been shut down immediately.
+        """
+        ...
 
     def sync_peek(
         self,
         block: bool = True,
         timeout: float | None = None,
-    ) -> T: ...
+    ) -> T:
+        """Return an item from the queue without removing it.
 
-    async def async_peek(self) -> T: ...
+        If optional args 'block' is True and 'timeout' is None (the default),
+        block if necessary until an item is available. If 'timeout' is
+        a non-negative number, it blocks at most 'timeout' seconds and raises
+        the QueueEmpty exception if no item was available within that time.
+        Otherwise ('block' is False), return an item if one is immediately
+        available, else raise the QueueEmpty exception ('timeout' is ignored in
+        that case).
 
-    def sync_join(self) -> None: ...
+        Raises QueueShutDown if the queue has been shut down and is empty, or
+        if the queue has been shut down immediately.
+        """
+        ...
 
-    async def async_join(self) -> None: ...
+    async def async_peek(self) -> T:
+        """Return an item from the queue without removing it.
+
+        If queue is empty, wait until an item is available.
+
+        Raises QueueShutDown if the queue has been shut down and is empty, or
+        if the queue has been shut down immediately.
+        """
+        ...
+
+    def sync_join(self) -> None:
+        """Blocks until all items in the queue have been gotten and processed.
+
+        The count of unfinished tasks goes up whenever an item is added to the
+        queue. The count goes down whenever a consumer calls task_done() to
+        indicate that the item was retrieved and all work on it is complete.
+
+        When the count of unfinished tasks drops to zero, join() unblocks.
+        """
+        ...
+
+    async def async_join(self) -> None:
+        """Blocks until all items in the queue have been gotten and processed.
+
+        The count of unfinished tasks goes up whenever an item is added to the
+        queue. The count goes down whenever a consumer calls task_done() to
+        indicate that the item was retrieved and all work on it is complete.
+
+        When the count of unfinished tasks drops to zero, join() unblocks.
+        """
+        ...
 
     @property
     def sync_q(self) -> SyncQueue[T]: ...
