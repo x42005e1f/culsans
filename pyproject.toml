@@ -245,6 +245,15 @@ unfixable = [
     # pylint
     "PLC0414",  # useless-import-alias
 ]
+"benches/**.py" = [
+    # flake8-print
+    "T20",
+]
+"benches/bench_all.py" = [
+    # flake8-bandit
+    "S404",  # suspicious-subprocess-import
+    "S603",  # subprocess-without-shell-equals-true
+]
 
 [tool.ruff.lint.isort]
 case-sensitive = true
