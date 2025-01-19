@@ -10,6 +10,7 @@ from pathlib import Path
 
 workdir = Path(__file__).parent
 executables = [
+    "python3.8",
     "python3.9",
     "python3.10",
     "python3.11",
