@@ -5,12 +5,15 @@
 
 import sys
 
-from asyncio import QueueEmpty as AsyncQueueEmpty, QueueFull as AsyncQueueFull
-from queue import Empty as SyncQueueEmpty, Full as SyncQueueFull
+from asyncio import QueueEmpty as AsyncEmpty, QueueFull as AsyncFull
+from queue import Empty as SyncEmpty, Full as SyncFull
 
 if sys.version_info >= (3, 13):
-    from asyncio import QueueShutDown as AsyncQueueShutDown
-    from queue import ShutDown as SyncQueueShutDown
+    from asyncio import QueueShutDown as AsyncShutDown
+    from queue import ShutDown as SyncShutDown
+
+    AsyncQueueShutDown = AsyncShutDown
+    SyncQueueShutDown = SyncShutDown
 
     class QueueShutDown(SyncQueueShutDown, AsyncQueueShutDown):
         """Raised when put/get with shut-down queue."""
@@ -22,6 +25,12 @@ else:
 
     SyncQueueShutDown = QueueShutDown
     AsyncQueueShutDown = QueueShutDown
+
+AsyncQueueEmpty = AsyncEmpty
+SyncQueueEmpty = SyncEmpty
+
+AsyncQueueFull = AsyncFull
+SyncQueueFull = SyncFull
 
 
 class QueueFull(SyncQueueFull, AsyncQueueFull):

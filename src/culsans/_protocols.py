@@ -15,9 +15,11 @@ class BaseQueue(Protocol[T]):
 
     def peekable(self) -> bool:
         """Return True if the queue is peekable, False otherwise."""
+        ...
 
     def qsize(self) -> int:
         """Return the approximate size of the queue (not reliable!)."""
+        ...
 
     def empty(self) -> bool:
         """Return True if the queue is empty, False otherwise (not reliable!).
@@ -30,6 +32,7 @@ class BaseQueue(Protocol[T]):
         To create code that needs to wait for all queued tasks to be
         completed, the preferred technique is to use the join() method.
         """
+        ...
 
     def full(self) -> bool:
         """Return True if the queue is full, False otherwise (not reliable!).
@@ -39,6 +42,7 @@ class BaseQueue(Protocol[T]):
         condition where a queue can shrink before the result of full() or
         qsize() can be used.
         """
+        ...
 
     def put_nowait(self, item: T) -> None:
         """Put an item into the queue without blocking.
@@ -48,6 +52,7 @@ class BaseQueue(Protocol[T]):
 
         Raises QueueShutDown if the queue has been shut down.
         """
+        ...
 
     def get_nowait(self) -> T:
         """Remove and return an item from the queue without blocking.
@@ -58,6 +63,7 @@ class BaseQueue(Protocol[T]):
         Raises QueueShutDown if the queue has been shut down and is empty,
         or if the queue has been shut down immediately.
         """
+        ...
 
     def peek_nowait(self) -> T:
         """Return an item from the queue without blocking.
@@ -68,9 +74,11 @@ class BaseQueue(Protocol[T]):
         Raises QueueShutDown if the queue has been shut down and is empty,
         or if the queue has been shut down immediately.
         """
+        ...
 
     def clear(self) -> None:
         """Clear all items from the queue atomically."""
+        ...
 
     def task_done(self) -> None:
         """Indicate that a formerly enqueued task is complete.
@@ -89,6 +97,7 @@ class BaseQueue(Protocol[T]):
         Raises ValueError if called more times than there were items placed in
         the queue.
         """
+        ...
 
     def shutdown(self, immediate: bool = False) -> None:
         """Shut-down the queue, making queue gets and puts raise QueueShutDown.
@@ -100,6 +109,7 @@ class BaseQueue(Protocol[T]):
         'immediate', a task is marked as done for each item remaining in
         the queue, which may unblock callers of join().
         """
+        ...
 
     @property
     def unfinished_tasks(self) -> int: ...
@@ -138,6 +148,7 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
 
         Raises QueueShutDown if the queue has been shut down.
         """
+        ...
 
     def get(self, block: bool = True, timeout: float | None = None) -> T:
         """Remove and return an item from the queue.
@@ -153,6 +164,7 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         Raises QueueShutDown if the queue has been shut down and is empty, or
         if the queue has been shut down immediately.
         """
+        ...
 
     def peek(self, block: bool = True, timeout: float | None = None) -> T:
         """Return an item from the queue without removing it.
@@ -168,6 +180,7 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         Raises QueueShutDown if the queue has been shut down and is empty, or
         if the queue has been shut down immediately.
         """
+        ...
 
     def join(self) -> None:
         """Blocks until all items in the queue have been gotten and processed.
@@ -178,6 +191,7 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
 
         When the count of unfinished tasks drops to zero, join() unblocks.
         """
+        ...
 
 
 class AsyncQueue(BaseQueue[T], Protocol[T]):
@@ -191,6 +205,7 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
 
         Raises QueueShutDown if the queue has been shut down.
         """
+        ...
 
     async def get(self) -> T:
         """Remove and return an item from the queue.
@@ -200,6 +215,7 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
         Raises QueueShutDown if the queue has been shut down and is empty, or
         if the queue has been shut down immediately.
         """
+        ...
 
     async def peek(self) -> T:
         """Return an item from the queue without removing it.
@@ -209,6 +225,7 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
         Raises QueueShutDown if the queue has been shut down and is empty, or
         if the queue has been shut down immediately.
         """
+        ...
 
     async def join(self) -> None:
         """Blocks until all items in the queue have been gotten and processed.
@@ -219,6 +236,7 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
 
         When the count of unfinished tasks drops to zero, join() unblocks.
         """
+        ...
 
 
 class MixedQueue(BaseQueue[T], Protocol[T]):

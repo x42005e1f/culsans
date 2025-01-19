@@ -11,14 +11,9 @@ from collections import deque
 from heapq import heappop, heappush
 from typing import TypeVar
 
-from aiologic import Condition  # type: ignore[import-untyped]
-from aiologic.lowlevel import (  # type: ignore[import-untyped]
-    checkpoint,
-    green_checkpoint,
-)
-from aiologic.lowlevel.thread import (  # type: ignore[import-untyped]
-    allocate_lock,
-)
+from aiologic import Condition
+from aiologic.lowlevel import checkpoint, green_checkpoint
+from aiologic.lowlevel._thread import LockType, allocate_lock
 
 from ._exceptions import (
     QueueEmpty,
@@ -39,18 +34,28 @@ class Queue(MixedQueue[T]):
     """
 
     __slots__ = (
+        "__data",
         "__weakref__",
         "_is_shutdown",
         "_maxsize",
         "_unfinished_tasks",
         "all_tasks_done",
-        "data",
         "mutex",
         "not_empty",
         "not_full",
     )
 
-    data: deque[T]
+    __data: deque[T]
+
+    _maxsize: int
+    _unfinished_tasks: int
+    _is_shutdown: bool
+
+    mutex: LockType
+
+    not_full: Condition[LockType]
+    not_empty: Condition[LockType]
+    all_tasks_done: Condition[LockType]
 
     def __init__(self, maxsize: int = 0) -> None:
         self._maxsize = maxsize
@@ -419,25 +424,25 @@ class Queue(MixedQueue[T]):
     # These will only be called with appropriate locks held
 
     def _init(self, maxsize: int) -> None:
-        self.data = deque()
+        self.__data = deque()
 
     def _qsize(self) -> int:
-        return len(self.data)
+        return len(self.__data)
 
     def _put(self, item: T) -> None:
-        self.data.append(item)
+        self.__data.append(item)
 
     def _get(self) -> T:
-        return self.data.popleft()
+        return self.__data.popleft()
 
     def _peek(self) -> T:
-        return self.data[0]
+        return self.__data[0]
 
     def _peekable(self) -> bool:
         return True
 
     def _clear(self) -> None:
-        self.data.clear()
+        self.__data.clear()
 
     @property
     def sync_q(self) -> SyncQueue[T]:
@@ -449,11 +454,11 @@ class Queue(MixedQueue[T]):
 
     @property
     def putting(self) -> int:
-        return self.not_full.waiting  # type: ignore[no-any-return]
+        return self.not_full.waiting
 
     @property
     def getting(self) -> int:
-        return self.not_empty.waiting  # type: ignore[no-any-return]
+        return self.not_empty.waiting
 
     @property
     def unfinished_tasks(self) -> int:
@@ -487,30 +492,30 @@ class Queue(MixedQueue[T]):
 class LifoQueue(Queue[T]):
     """A subclass of Queue; retrieves most recently added entries first."""
 
-    __slots__ = ()
+    __slots__ = ("__data",)
 
-    data: list[T]  # type: ignore[assignment]
+    __data: list[T]
 
     def _init(self, maxsize: int) -> None:
-        self.data = []
+        self.__data = []
 
     def _qsize(self) -> int:
-        return len(self.data)
+        return len(self.__data)
 
     def _put(self, item: T) -> None:
-        self.data.append(item)
+        self.__data.append(item)
 
     def _get(self) -> T:
-        return self.data.pop()
+        return self.__data.pop()
 
     def _peek(self) -> T:
-        return self.data[-1]
+        return self.__data[-1]
 
     def _peekable(self) -> bool:
         return True
 
     def _clear(self) -> None:
-        self.data.clear()
+        self.__data.clear()
 
 
 class PriorityQueue(Queue[T]):
@@ -519,27 +524,27 @@ class PriorityQueue(Queue[T]):
     Entries are typically tuples of the form: (priority number, data).
     """
 
-    __slots__ = ()
+    __slots__ = ("__data",)
 
-    data: list[T]  # type: ignore[assignment]
+    __data: list[T]
 
     def _init(self, maxsize: int) -> None:
-        self.data = []
+        self.__data = []
 
     def _qsize(self) -> int:
-        return len(self.data)
+        return len(self.__data)
 
     def _put(self, item: T) -> None:
-        heappush(self.data, item)
+        heappush(self.__data, item)
 
     def _get(self) -> T:
-        return heappop(self.data)
+        return heappop(self.__data)
 
     def _peek(self) -> T:
-        return self.data[0]
+        return self.__data[0]
 
     def _peekable(self) -> bool:
         return True
 
     def _clear(self) -> None:
-        self.data.clear()
+        self.__data.clear()

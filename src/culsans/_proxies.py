@@ -15,6 +15,8 @@ T = TypeVar("T")
 class SyncQueueProxy(SyncQueue[T]):
     __slots__ = ("wrapped",)
 
+    wrapped: MixedQueue[T]
+
     def __init__(self, wrapped: MixedQueue[T]) -> None:
         self.wrapped = wrapped
 
@@ -88,6 +90,8 @@ class SyncQueueProxy(SyncQueue[T]):
 
 class AsyncQueueProxy(AsyncQueue[T]):
     __slots__ = ("wrapped",)
+
+    wrapped: MixedQueue[T]
 
     def __init__(self, wrapped: MixedQueue[T]) -> None:
         self.wrapped = wrapped
