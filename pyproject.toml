@@ -39,11 +39,21 @@ classifiers = [
 [project.urls]
 Source = "https://github.com/x42005e1f/culsans"
 
+[tool.codespell]
+skip = [
+    "tests/culsans/test_asyncio.py",
+    "tests/culsans/test_queue.py",
+]
+
 [tool.ruff]
 fix = true
 line-length = 79
 preview = true
 show-fixes = true
+exclude = [
+    "tests/culsans/test_asyncio.py",
+    "tests/culsans/test_queue.py",
+]
 
 [tool.ruff.lint]
 select = [
