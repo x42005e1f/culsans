@@ -76,10 +76,6 @@ class BaseQueue(Protocol[T]):
         """
         ...
 
-    def clear(self) -> None:
-        """Clear all items from the queue atomically."""
-        ...
-
     def task_done(self) -> None:
         """Indicate that a formerly enqueued task is complete.
 
@@ -109,6 +105,10 @@ class BaseQueue(Protocol[T]):
         'immediate', a task is marked as done for each item remaining in
         the queue, which may unblock callers of join().
         """
+        ...
+
+    def clear(self) -> None:
+        """Clear all items from the queue atomically."""
         ...
 
     @property

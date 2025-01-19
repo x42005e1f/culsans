@@ -55,17 +55,17 @@ class SyncQueueProxy(SyncQueue[T]):
     def peek_nowait(self) -> T:
         return self.wrapped.peek_nowait()
 
-    def clear(self) -> None:
-        self.wrapped.clear()
+    def join(self) -> None:
+        self.wrapped.sync_join()
 
     def task_done(self) -> None:
         self.wrapped.task_done()
 
-    def join(self) -> None:
-        self.wrapped.sync_join()
-
     def shutdown(self, immediate: bool = False) -> None:
         self.wrapped.shutdown(immediate)
+
+    def clear(self) -> None:
+        self.wrapped.clear()
 
     @property
     def unfinished_tasks(self) -> int:
@@ -126,17 +126,17 @@ class AsyncQueueProxy(AsyncQueue[T]):
     def peek_nowait(self) -> T:
         return self.wrapped.peek_nowait()
 
-    def clear(self) -> None:
-        self.wrapped.clear()
+    async def join(self) -> None:
+        await self.wrapped.async_join()
 
     def task_done(self) -> None:
         self.wrapped.task_done()
 
-    async def join(self) -> None:
-        await self.wrapped.async_join()
-
     def shutdown(self, immediate: bool = False) -> None:
         self.wrapped.shutdown(immediate)
+
+    def clear(self) -> None:
+        self.wrapped.clear()
 
     @property
     def unfinished_tasks(self) -> int:

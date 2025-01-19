@@ -330,32 +330,6 @@ class Queue(MixedQueue[T]):
 
         return item
 
-    def clear(self) -> None:
-        with self.mutex:
-            size = self._qsize()
-            unfinished = max(0, self._unfinished_tasks - size)
-
-            self._clear()
-
-            if not unfinished:
-                self.all_tasks_done.notify_all()
-
-            self._unfinished_tasks = unfinished
-            self.not_full.notify(size)
-
-    def task_done(self) -> None:
-        with self.mutex:
-            unfinished = self._unfinished_tasks - 1
-
-            if unfinished <= 0:
-                if unfinished < 0:
-                    msg = "task_done() called too many times"
-                    raise ValueError(msg)
-
-                self.all_tasks_done.notify_all()
-
-            self._unfinished_tasks = unfinished
-
     def sync_join(self) -> None:
         rescheduled = False
 
@@ -379,6 +353,19 @@ class Queue(MixedQueue[T]):
 
         if not rescheduled:
             await checkpoint()
+
+    def task_done(self) -> None:
+        with self.mutex:
+            unfinished = self._unfinished_tasks - 1
+
+            if unfinished <= 0:
+                if unfinished < 0:
+                    msg = "task_done() called too many times"
+                    raise ValueError(msg)
+
+                self.all_tasks_done.notify_all()
+
+            self._unfinished_tasks = unfinished
 
     def shutdown(self, immediate: bool = False) -> None:
         with self.mutex:
@@ -409,6 +396,19 @@ class Queue(MixedQueue[T]):
     async def aclose(self) -> None:
         self.close()
         await self.wait_closed()
+
+    def clear(self) -> None:
+        with self.mutex:
+            size = self._qsize()
+            unfinished = max(0, self._unfinished_tasks - size)
+
+            self._clear()
+
+            if not unfinished:
+                self.all_tasks_done.notify_all()
+
+            self._unfinished_tasks = unfinished
+            self.not_full.notify(size)
 
     def _check_peekable(self) -> None:
         if not self._peekable():
