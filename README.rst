@@ -10,19 +10,19 @@ Mixed sync-async queue, supposed to be used for communicating between classic
 synchronous (threaded) code and asynchronous one, between two asynchronous
 codes in different threads, and for any other combination that you want. Based
 on the `queue <https://docs.python.org/3/library/queue.html>`_ module. Built
-on the `aiologic <https://pypi.org/project/aiologic/>`_ package. Inspired
-by the `janus <https://pypi.org/project/janus/>`_ library.
+on the `aiologic <https://github.com/x42005e1f/aiologic>`_ package. Inspired
+by the `janus <https://github.com/aio-libs/janus>`_ library.
 
 Like `Culsans god <https://en.wikipedia.org/wiki/Culsans>`_, the queue object
 from the library has two faces: synchronous and asynchronous interface. Unlike
-`Janus library <https://pypi.org/project/janus/>`_, synchronous interface
-supports `eventlet <https://pypi.org/project/eventlet/>`_,
-`gevent <https://pypi.org/project/gevent/>`_, and
+`Janus library <https://github.com/aio-libs/janus>`_, synchronous interface
+supports `eventlet <https://github.com/eventlet/eventlet>`_,
+`gevent <https://github.com/gevent/gevent>`_, and
 `threading <https://docs.python.org/3/library/threading.html>`_, while
 asynchronous interface supports
 `asyncio <https://docs.python.org/3/library/asyncio.html>`_,
-`trio <https://pypi.org/project/trio/>`_, and
-`anyio <https://pypi.org/project/anyio/>`_.
+`trio <https://github.com/python-trio/trio>`_, and
+`anyio <https://github.com/agronholm/anyio>`_.
 
 Synchronous is fully compatible with
 `standard queue <https://docs.python.org/3/library/queue.html>`_, asynchronous
