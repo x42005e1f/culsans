@@ -5,11 +5,6 @@
 
 from __future__ import annotations
 
-__all__ = (
-    "AsyncQueueProxy",
-    "SyncQueueProxy",
-)
-
 from typing import TypeVar
 
 from .protocols import AsyncQueue, MixedQueue, SyncQueue
