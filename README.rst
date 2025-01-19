@@ -377,4 +377,4 @@ License
 =======
 
 The ``culsans`` library is offered under the
-`BSD Zero Clause License <https://spdx.org/licenses/0BSD.html>`_.
+`ISC License <https://spdx.org/licenses/ISC.html>`_.
