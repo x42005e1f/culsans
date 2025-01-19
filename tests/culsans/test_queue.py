@@ -5,19 +5,34 @@
 #
 # SPDX-License-Identifier: PSF-2.0
 
+# Brief summary of changes:
+#
+# * queue replaced by culsans
+# * removed test dependencies
+# * removed C-specific tests
+# * removed SimpleQueue tests
+#
+# Relevant for python/cpython#9017b95
+
 import threading
 import time
 import unittest
 
+# XXX culsans change: test imports replaced by culsans import
 import culsans
 
 QUEUE_SIZE = 5
+# XXX culsans change: borrowed from test.support
 SHORT_TIMEOUT = 30.0
 
 def qfull(q):
     return q.maxsize > 0 and q.qsize() == q.maxsize
 
-# from test.support.threading_helper
+# XXX culsans change: borrowed from test.support.threading_helper
+# SPDX-SnippetBegin
+# SPDX-SnippetCopyrightText: 2017 Python Software Foundation
+# SPDX-License-Identifier: PSF-2.0
+
 def join_thread(thread, timeout=None):
     """Join a thread. Raise an AssertionError if the thread is still alive
     after timeout seconds.
@@ -28,6 +43,8 @@ def join_thread(thread, timeout=None):
     if thread.is_alive():
         msg = f"failed to join the thread in {timeout:.1f} seconds"
         raise AssertionError(msg)
+
+# SPDX-SnippetEnd
 
 # A thread to run a function that unclogs a blocked Queue.
 class _TriggerThread(threading.Thread):
@@ -75,6 +92,7 @@ class BlockingTestMixin:
                           block_func)
             return self.result
         finally:
+            # XXX culsans change: threading_helper.join_thread -> join_thread
             join_thread(thread) # make sure the thread terminates
 
     # Call this instead if block_func is supposed to raise an exception.
@@ -91,6 +109,7 @@ class BlockingTestMixin:
                 self.fail("expected exception of kind %r" %
                                  expected_exception_class)
         finally:
+            # XXX culsans change: threading_helper.join_thread -> join_thread
             join_thread(thread) # make sure the thread terminates
             if not thread.startedEvent.is_set():
                 self.fail("trigger thread ended but event never set")
@@ -114,6 +133,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
                             LifoQueue = [222, 333, 111],
                             PriorityQueue = [111, 222, 333])
         actual_order = [q.get(), q.get(), q.get()]
+        # XXX culsans change: +.wrapped
         self.assertEqual(actual_order, target_order[q.wrapped.__class__.__name__],
                          "Didn't seem to queue the correct data!")
         for i in range(QUEUE_SIZE-1):
@@ -129,11 +149,13 @@ class BaseQueueTestMixin(BlockingTestMixin):
         try:
             q.put(full, block=0)
             self.fail("Didn't appear to block with a full queue")
+        # XXX culsans change: Full -> SyncQueueFull
         except self.queue.SyncQueueFull:
             pass
         try:
             q.put(full, timeout=0.01)
             self.fail("Didn't appear to time-out with a full queue")
+        # XXX culsans change: Full -> SyncQueueFull
         except self.queue.SyncQueueFull:
             pass
         # Test a blocking put
@@ -146,11 +168,13 @@ class BaseQueueTestMixin(BlockingTestMixin):
         try:
             q.get(block=0)
             self.fail("Didn't appear to block with an empty queue")
+        # XXX culsans change: Empty -> SyncQueueEmpty
         except self.queue.SyncQueueEmpty:
             pass
         try:
             q.get(timeout=0.01)
             self.fail("Didn't appear to time-out with an empty queue")
+        # XXX culsans change: Empty -> SyncQueueEmpty
         except self.queue.SyncQueueEmpty:
             pass
         # Test a blocking get
@@ -188,6 +212,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
 
     def test_queue_task_done(self):
         # Test to make sure a queue task completed successfully.
+        # XXX culsans change: +.sync_q
         q = self.type2test().sync_q
         try:
             q.task_done()
@@ -199,6 +224,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
     def test_queue_join(self):
         # Test that a queue join()s successfully, and before anything else
         # (done twice for insurance).
+        # XXX culsans change: +.sync_q
         q = self.type2test().sync_q
         self.queue_join_test(q)
         self.queue_join_test(q)
@@ -212,11 +238,13 @@ class BaseQueueTestMixin(BlockingTestMixin):
     def test_basic(self):
         # Do it a couple of times on the same queue.
         # Done twice to make sure works with same instance reused.
+        # XXX culsans change: +.sync_q
         q = self.type2test(QUEUE_SIZE).sync_q
         self.basic_queue_test(q)
         self.basic_queue_test(q)
 
     def test_negative_timeout_raises_exception(self):
+        # XXX culsans change: +.sync_q
         q = self.type2test(QUEUE_SIZE).sync_q
         with self.assertRaises(ValueError):
             q.put(1, timeout=-1)
@@ -224,55 +252,69 @@ class BaseQueueTestMixin(BlockingTestMixin):
             q.get(1, timeout=-1)
 
     def test_nowait(self):
+        # XXX culsans change: +.sync_q
         q = self.type2test(QUEUE_SIZE).sync_q
         for i in range(QUEUE_SIZE):
             q.put_nowait(1)
+        # XXX culsans change: Full -> SyncQueueFull
         with self.assertRaises(self.queue.SyncQueueFull):
             q.put_nowait(1)
 
         for i in range(QUEUE_SIZE):
             q.get_nowait()
+        # XXX culsans change: Empty -> SyncQueueEmpty
         with self.assertRaises(self.queue.SyncQueueEmpty):
             q.get_nowait()
 
     def test_shrinking_queue(self):
         # issue 10110
+        # XXX culsans change: +.sync_q
         q = self.type2test(3).sync_q
         q.put(1)
         q.put(2)
         q.put(3)
+        # XXX culsans change: Full -> SyncQueueFull
         with self.assertRaises(self.queue.SyncQueueFull):
             q.put_nowait(4)
         self.assertEqual(q.qsize(), 3)
         q.maxsize = 2                       # shrink the queue
+        # XXX culsans change: Full -> SyncQueueFull
         with self.assertRaises(self.queue.SyncQueueFull):
             q.put_nowait(4)
 
     def test_shutdown_empty(self):
+        # XXX culsans change: +.sync_q
         q = self.type2test().sync_q
         q.shutdown()
+        # XXX culsans change: ShutDown -> SyncQueueShutDown
         with self.assertRaises(self.queue.SyncQueueShutDown):
             q.put("data")
+        # XXX culsans change: ShutDown -> SyncQueueShutDown
         with self.assertRaises(self.queue.SyncQueueShutDown):
             q.get()
 
     def test_shutdown_nonempty(self):
+        # XXX culsans change: +.sync_q
         q = self.type2test().sync_q
         q.put("data")
         q.shutdown()
         q.get()
+        # XXX culsans change: ShutDown -> SyncQueueShutDown
         with self.assertRaises(self.queue.SyncQueueShutDown):
             q.get()
 
     def test_shutdown_immediate(self):
+        # XXX culsans change: +.sync_q
         q = self.type2test().sync_q
         q.put("data")
         q.shutdown(immediate=True)
+        # XXX culsans change: ShutDown -> SyncQueueShutDown
         with self.assertRaises(self.queue.SyncQueueShutDown):
             q.get()
 
     def test_shutdown_allowed_transitions(self):
         # allowed transitions would be from alive via shutdown to immediate
+        # XXX culsans change: +.sync_q
         q = self.type2test().sync_q
         self.assertFalse(q.is_shutdown)
 
@@ -285,18 +327,23 @@ class BaseQueueTestMixin(BlockingTestMixin):
         q.shutdown(immediate=False)
 
     def _shutdown_all_methods_in_one_thread(self, immediate):
+        # XXX culsans change: +.sync_q
         q = self.type2test(2).sync_q
         q.put("L")
         q.put_nowait("O")
         q.shutdown(immediate)
 
+        # XXX culsans change: ShutDown -> SyncQueueShutDown
         with self.assertRaises(self.queue.SyncQueueShutDown):
             q.put("E")
+        # XXX culsans change: ShutDown -> SyncQueueShutDown
         with self.assertRaises(self.queue.SyncQueueShutDown):
             q.put_nowait("W")
         if immediate:
+            # XXX culsans change: ShutDown -> SyncQueueShutDown
             with self.assertRaises(self.queue.SyncQueueShutDown):
                 q.get()
+            # XXX culsans change: ShutDown -> SyncQueueShutDown
             with self.assertRaises(self.queue.SyncQueueShutDown):
                 q.get_nowait()
             with self.assertRaises(ValueError):
@@ -310,10 +357,13 @@ class BaseQueueTestMixin(BlockingTestMixin):
             q.join()
             # on shutdown(immediate=False)
             # when queue is empty, should raise ShutDown Exception
+            # XXX culsans change: ShutDown -> SyncQueueShutDown
             with self.assertRaises(self.queue.SyncQueueShutDown):
                 q.get() # p.get(True)
+            # XXX culsans change: ShutDown -> SyncQueueShutDown
             with self.assertRaises(self.queue.SyncQueueShutDown):
                 q.get_nowait() # p.get(False)
+            # XXX culsans change: ShutDown -> SyncQueueShutDown
             with self.assertRaises(self.queue.SyncQueueShutDown):
                 q.get(True, 1.0)
 
@@ -336,6 +386,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
         for i in range(i_when_exec_shutdown//2, n):
             try:
                 q.put((i, "YDLO"))
+            # XXX culsans change: ShutDown -> SyncQueueShutDown
             except self.queue.SyncQueueShutDown:
                 results.append(False)
                 break
@@ -357,9 +408,11 @@ class BaseQueueTestMixin(BlockingTestMixin):
             try:
                 q.get(False)
                 q.task_done()
+            # XXX culsans change: ShutDown -> SyncQueueShutDown
             except self.queue.SyncQueueShutDown:
                 results.append(True)
                 break
+            # XXX culsans change: Empty -> SyncQueueEmpty
             except self.queue.SyncQueueEmpty:
                 pass
 
@@ -377,6 +430,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
         # Run a 'multi-producers/consumers queue' use case,
         # with enough items into the queue.
         # When shutdown, all running threads will be joined.
+        # XXX culsans change: +.sync_q
         q = self.type2test().sync_q
         ps = []
         res_puts = []
@@ -433,6 +487,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
             msg = q.get()
             results.append(not shutdown)
             return not shutdown
+        # XXX culsans change: ShutDown -> SyncQueueShutDown
         except self.queue.SyncQueueShutDown:
             results.append(shutdown)
             return shutdown
@@ -447,6 +502,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
             q.task_done()
             results.append(True)
             return msg
+        # XXX culsans change: ShutDown -> SyncQueueShutDown
         except self.queue.SyncQueueShutDown:
             results.append(False)
             return False
@@ -457,6 +513,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
             q.put(msg)
             results.append(not shutdown)
             return not shutdown
+        # XXX culsans change: ShutDown -> SyncQueueShutDown
         except self.queue.SyncQueueShutDown:
             results.append(shutdown)
             return shutdown
@@ -469,6 +526,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
             q.join()
             results.append(not shutdown)
             return not shutdown
+        # XXX culsans change: ShutDown -> SyncQueueShutDown
         except self.queue.SyncQueueShutDown:
             results.append(shutdown)
             return shutdown
@@ -477,6 +535,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
         return self._join(q, results, True)
 
     def _shutdown_get(self, immediate):
+        # XXX culsans change: +.sync_q
         q = self.type2test(2).sync_q
         results = []
         go = threading.Event()
@@ -517,6 +576,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
         return self._shutdown_get(True)
 
     def _shutdown_put(self, immediate):
+        # XXX culsans change: +.sync_q
         q = self.type2test(2).sync_q
         results = []
         go = threading.Event()
@@ -546,6 +606,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
         return self._shutdown_put(True)
 
     def _shutdown_join(self, immediate):
+        # XXX culsans change: +.sync_q
         q = self.type2test().sync_q
         results = []
         q.put("Y")
@@ -579,6 +640,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
         return self._shutdown_join(False)
 
     def _shutdown_put_join(self, immediate):
+        # XXX culsans change: +.sync_q
         q = self.type2test(2).sync_q
         results = []
         go = threading.Event()
@@ -599,6 +661,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
         go.set()
 
         if immediate:
+            # XXX culsans change: ShutDown -> SyncQueueShutDown
             with self.assertRaises(self.queue.SyncQueueShutDown):
                 q.get_nowait()
         else:
@@ -618,6 +681,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
         return self._shutdown_put_join(False)
 
     def test_shutdown_get_task_done_join(self):
+        # XXX culsans change: +.sync_q
         q = self.type2test(2).sync_q
         results = []
         go = threading.Event()
@@ -649,6 +713,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
             except Exception as e:
                 results.append(e)
 
+        # XXX culsans change: +.sync_q
         q = self.type2test().sync_q
         results = []
         get_thread = threading.Thread(target=get)
@@ -657,6 +722,7 @@ class BaseQueueTestMixin(BlockingTestMixin):
         get_thread.join(timeout=10.0)
         self.assertFalse(get_thread.is_alive())
         self.assertEqual(len(results), 1)
+        # XXX culsans change: ShutDown -> SyncQueueShutDown
         self.assertIsInstance(results[0], self.queue.SyncQueueShutDown)
 
 
@@ -667,6 +733,7 @@ class QueueTest(BaseQueueTestMixin):
         super().setUp()
 
 class PyQueueTest(QueueTest, unittest.TestCase):
+    # XXX culsans change: py_queue -> culsans
     queue = culsans
 
 
@@ -678,6 +745,7 @@ class LifoQueueTest(BaseQueueTestMixin):
 
 
 class PyLifoQueueTest(LifoQueueTest, unittest.TestCase):
+    # XXX culsans change: py_queue -> culsans
     queue = culsans
 
 
@@ -689,6 +757,7 @@ class PriorityQueueTest(BaseQueueTestMixin):
 
 
 class PyPriorityQueueTest(PriorityQueueTest, unittest.TestCase):
+    # XXX culsans change: py_queue -> culsans
     queue = culsans
 
 
@@ -728,12 +797,14 @@ class FailingQueueTest(BlockingTestMixin):
         for i in range(QUEUE_SIZE-1):
             q.put(i)
         # Test a failing non-blocking put.
+        # XXX culsans change: +.wrapped
         q.wrapped.fail_next_put = True
         try:
             q.put("oops", block=0)
             self.fail("The queue didn't fail when it should have")
         except FailingQueueException:
             pass
+        # XXX culsans change: +.wrapped
         q.wrapped.fail_next_put = True
         try:
             q.put("oops", timeout=0.1)
@@ -743,6 +814,7 @@ class FailingQueueTest(BlockingTestMixin):
         q.put("last")
         self.assertTrue(qfull(q), "Queue should be full")
         # Test a failing blocking put
+        # XXX culsans change: +.wrapped
         q.wrapped.fail_next_put = True
         try:
             self.do_blocking_test(q.put, ("full",), q.get, ())
@@ -753,6 +825,7 @@ class FailingQueueTest(BlockingTestMixin):
         # put failed, but get succeeded - re-add
         q.put("last")
         # Test a failing timeout put
+        # XXX culsans change: +.wrapped
         q.wrapped.fail_next_put = True
         try:
             self.do_exceptional_blocking_test(q.put, ("full", True, 10), q.get, (),
@@ -775,6 +848,7 @@ class FailingQueueTest(BlockingTestMixin):
             q.get()
         self.assertTrue(not q.qsize(), "Queue should be empty")
         q.put("first")
+        # XXX culsans change: +.wrapped
         q.wrapped.fail_next_get = True
         try:
             q.get()
@@ -782,6 +856,7 @@ class FailingQueueTest(BlockingTestMixin):
         except FailingQueueException:
             pass
         self.assertTrue(q.qsize(), "Queue should not be empty")
+        # XXX culsans change: +.wrapped
         q.wrapped.fail_next_get = True
         try:
             q.get(timeout=0.1)
@@ -791,6 +866,7 @@ class FailingQueueTest(BlockingTestMixin):
         self.assertTrue(q.qsize(), "Queue should not be empty")
         q.get()
         self.assertTrue(not q.qsize(), "Queue should be empty")
+        # XXX culsans change: +.wrapped
         q.wrapped.fail_next_get = True
         try:
             self.do_exceptional_blocking_test(q.get, (), q.put, ('empty',),
@@ -807,6 +883,7 @@ class FailingQueueTest(BlockingTestMixin):
 
         # Test to make sure a queue is functioning correctly.
         # Done twice to the same instance.
+        # XXX culsans change: +.sync_q
         q = self.FailingQueue(QUEUE_SIZE).sync_q
         self.failing_queue_test(q)
         self.failing_queue_test(q)
@@ -814,6 +891,7 @@ class FailingQueueTest(BlockingTestMixin):
 
 
 class PyFailingQueueTest(FailingQueueTest, unittest.TestCase):
+    # XXX culsans change: py_queue -> culsans
     queue = culsans
 
 
