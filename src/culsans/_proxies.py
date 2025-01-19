@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import TypeVar
 
-from .protocols import AsyncQueue, MixedQueue, SyncQueue
+from ._protocols import AsyncQueue, MixedQueue, SyncQueue
 
 T = TypeVar("T")
 

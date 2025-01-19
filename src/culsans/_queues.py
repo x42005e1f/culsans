@@ -20,14 +20,14 @@ from aiologic.lowlevel.thread import (  # type: ignore[import-untyped]
     allocate_lock,
 )
 
-from .exceptions import (
+from ._exceptions import (
     QueueEmpty,
     QueueFull,
     QueueShutDown,
     UnsupportedOperation,
 )
-from .protocols import AsyncQueue, MixedQueue, SyncQueue
-from .proxies import AsyncQueueProxy, SyncQueueProxy
+from ._protocols import AsyncQueue, MixedQueue, SyncQueue
+from ._proxies import AsyncQueueProxy, SyncQueueProxy
 
 T = TypeVar("T")
 
