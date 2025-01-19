@@ -1,4 +1,9 @@
-"""Tests for queues.py"""
+#!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2013 Python Software Foundation
+# SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
+#
+# SPDX-License-Identifier: PSF-2.0
 
 import asyncio
 import unittest

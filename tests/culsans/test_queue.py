@@ -1,5 +1,10 @@
-# Some simple queue module tests, plus some failure conditions
-# to ensure the Queue locks remain stable.
+#!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2002 Python Software Foundation
+# SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
+#
+# SPDX-License-Identifier: PSF-2.0
+
 import threading
 import time
 import unittest

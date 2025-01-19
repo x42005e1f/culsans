@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
+# SPDX-License-Identifier: CC0-1.0
+
 [build-system]
 requires = ["setuptools>=64"]
 
@@ -9,7 +12,6 @@ authors = [
 ]
 description = "Thread-safe async-aware queue for Python"
 readme = {file = "README.rst", content-type = "text/x-rst"}
-license = {file = "LICENSE"}
 requires-python = ">=3.9"
 dependencies = [
     "aiologic>=0.12.0"

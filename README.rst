@@ -1,3 +1,7 @@
+..
+  SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
+  SPDX-License-Identifier: CC-BY-4.0
+
 =======
 culsans
 =======
@@ -376,5 +380,15 @@ repository on GitHub <https://github.com/x42005e1f/culsans>`_.
 License
 =======
 
-The ``culsans`` library is offered under the
-`ISC License <https://spdx.org/licenses/ISC.html>`_.
+The ``culsans`` library is `REUSE <https://reuse.software/>`_-compliant and is
+offered under multiple licenses:
+
+* All original source code is licensed under `ISC <LICENSES/ISC.txt>`_.
+* All original test code is licensed under `0BSD <LICENSES/0BSD.txt>`_.
+* All documentation is licensed under `CC-BY-4.0 <LICENSES/CC-BY-4.0.txt>`_.
+* All configuration is licensed under `CC0-1.0 <LICENSES/CC0-1.0.txt>`_.
+* Some test code borrowed from
+  `python/cpython <https://github.com/python/cpython>`_ is licensed under
+  `PSF-2.0 <LICENSES/PSF-2.0.txt>`_.
+
+For more accurate information, check the individual files.
