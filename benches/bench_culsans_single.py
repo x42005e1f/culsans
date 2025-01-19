@@ -6,6 +6,8 @@
 import asyncio
 import sys
 
+import aiologic
+
 import culsans
 
 
@@ -27,6 +29,8 @@ async def func(in_q, out_q):
 
 
 async def main():
+    aiologic.lowlevel.current_async_library_tlocal.name = "asyncio"
+
     queue = culsans.Queue()
 
     try:

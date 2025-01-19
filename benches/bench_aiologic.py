@@ -36,6 +36,8 @@ async def func(in_q, out_q):
 
 
 async def main():
+    aiologic.lowlevel.current_async_library_tlocal.name = "asyncio"
+
     in_q = aiologic.SimpleQueue()
     out_q = aiologic.SimpleQueue()
 

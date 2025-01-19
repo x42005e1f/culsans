@@ -27,6 +27,8 @@ async def func(in_q, out_q):
 
 
 async def main():
+    aiologic.lowlevel.current_async_library_tlocal.name = "asyncio"
+
     queue = aiologic.SimpleQueue()
 
     try:
