@@ -17,7 +17,10 @@ executables = [
     "python3.12",
     "python3.13",
     "python3.13t",
+    "pypy3.8",
+    "pypy3.9",
     "pypy3.10",
+    "pypy3.11",
 ]
 libraries = [
     "janus",
