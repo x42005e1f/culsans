@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: CC0-1.0
 
 [build-system]
-requires = ["setuptools>=64"]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "culsans"
-version = "0.8.0"
 authors = [
     {name = "Ilya Egorov", email = "0x42005e1f@gmail.com"},
 ]
@@ -15,6 +15,9 @@ readme = {file = "README.rst", content-type = "text/x-rst"}
 requires-python = ">=3.8"
 dependencies = [
     "aiologic>=0.13.0"
+]
+dynamic = [
+    "version",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -260,3 +263,5 @@ unfixable = [
 case-sensitive = true
 combine-as-imports = true
 lines-between-types = 1
+
+[tool.setuptools_scm]
