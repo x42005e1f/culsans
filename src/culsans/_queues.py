@@ -12,7 +12,7 @@ from heapq import heappop, heappush
 from typing import TypeVar
 
 from aiologic import Condition
-from aiologic.lowlevel import checkpoint, green_checkpoint
+from aiologic.lowlevel import async_checkpoint, green_checkpoint
 from aiologic.lowlevel._thread import LockType, allocate_lock
 
 from ._exceptions import (
@@ -153,7 +153,7 @@ class Queue(MixedQueue[T]):
             self.not_empty.notify()
 
         if not rescheduled:
-            await checkpoint()
+            await async_checkpoint()
 
     def put_nowait(self, item: T) -> None:
         with self.mutex:
@@ -228,7 +228,7 @@ class Queue(MixedQueue[T]):
                 self.not_full.notify()
 
         if not rescheduled:
-            await checkpoint()
+            await async_checkpoint()
 
         return item
 
@@ -313,7 +313,7 @@ class Queue(MixedQueue[T]):
                     self.not_empty.notify()
 
         if not rescheduled:
-            await checkpoint()
+            await async_checkpoint()
 
         return item
 
@@ -352,7 +352,7 @@ class Queue(MixedQueue[T]):
                 rescheduled = True
 
         if not rescheduled:
-            await checkpoint()
+            await async_checkpoint()
 
     def task_done(self) -> None:
         with self.mutex:
@@ -391,7 +391,7 @@ class Queue(MixedQueue[T]):
             msg = "Waiting for non-closed queue"
             raise RuntimeError(msg)
 
-        await checkpoint()
+        await async_checkpoint()
 
     async def aclose(self) -> None:
         self.close()
