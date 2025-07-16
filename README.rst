@@ -6,46 +6,58 @@
 culsans
 =======
 
+|pypi-dw| |pypi-impl| |pypi-pyv| |pypi-types|
+
+.. |pypi-dw| image:: https://img.shields.io/pypi/dw/culsans
+  :target: https://pypistats.org/packages/culsans
+  :alt:
+.. |pypi-impl| image:: https://img.shields.io/pypi/implementation/culsans
+  :target: #features
+  :alt:
+.. |pypi-pyv| image:: https://img.shields.io/pypi/pyversions/culsans
+  :target: #features
+  :alt:
+.. |pypi-types| image:: https://img.shields.io/pypi/types/culsans
+  :target: #features
+  :alt:
+
 Mixed sync-async queue, supposed to be used for communicating between classic
 synchronous (threaded) code and asynchronous one, between two asynchronous
 codes in different threads, and for any other combination that you want. Based
-on the `queue <https://docs.python.org/3/library/queue.html>`_ module. Built
-on the `aiologic <https://github.com/x42005e1f/aiologic>`_ package. Inspired
-by the `janus <https://github.com/aio-libs/janus>`_ library.
+on the `queue <https://docs.python.org/3/library/queue.html>`_ module. Built on
+the `aiologic <https://github.com/x42005e1f/aiologic>`_ package. Inspired by
+the `janus <https://github.com/aio-libs/janus>`_ library.
 
 Like `Culsans god <https://en.wikipedia.org/wiki/Culsans>`_, the queue object
 from the library has two faces: synchronous and asynchronous interface. Unlike
 `Janus library <https://github.com/aio-libs/janus>`_, synchronous interface
-supports `eventlet <https://github.com/eventlet/eventlet>`_,
-`gevent <https://github.com/gevent/gevent>`_, and
-`threading <https://docs.python.org/3/library/threading.html>`_, while
-asynchronous interface supports
-`asyncio <https://docs.python.org/3/library/asyncio.html>`_,
-`trio <https://github.com/python-trio/trio>`_, and
-`anyio <https://github.com/agronholm/anyio>`_.
+supports `eventlet <https://github.com/eventlet/eventlet>`_, `gevent <https://
+github.com/gevent/gevent>`_, and `threading <https://docs.python.org/3/library/
+threading.html>`_, while asynchronous interface supports `asyncio <https://
+docs.python.org/3/library/asyncio.html>`_, `curio <https://github.com/dabeaz/
+curio>`_, and `trio <https://github.com/python-trio/trio>`_.
 
-Synchronous is fully compatible with
-`standard queue <https://docs.python.org/3/library/queue.html>`_, asynchronous
-one follows
-`asyncio queue design <https://docs.python.org/3/library/asyncio-queue.html>`_.
+Synchronous is fully compatible with `standard queue <https://docs.python.org/
+3/library/queue.html>`_, asynchronous one follows `asyncio queue design
+<https://docs.python.org/3/library/asyncio-queue.html>`_.
 
 Installation
 ============
 
-Install from `PyPI <https://pypi.org/project/culsans/>`_ (recommended):
+Install from `PyPI <https://pypi.org/project/culsans/>`_ (stable):
 
 .. code:: console
 
     pip install culsans
 
-Or from `GitHub <https://github.com/x42005e1f/culsans>`_:
+Or from `GitHub <https://github.com/x42005e1f/culsans>`_ (latest):
 
 .. code:: console
 
     pip install git+https://github.com/x42005e1f/culsans.git
 
-You can also use other package managers, such as
-`uv <https://github.com/astral-sh/uv>`_.
+You can also use other package managers, such as `uv <https://github.com/
+astral-sh/uv>`_.
 
 Usage
 =====
@@ -172,7 +184,7 @@ clear()
 In some scenarios it may be necessary to clear the queue. But it is inefficient
 to do this through a loop, and it causes additional difficulties when it is
 also necessary to ensure that no new items can be added during the clearing
-process. For this purpose, there is an atomic method ``clear()`` that clears
+process. For this purpose, there is the atomic ``clear()`` method that clears
 the queue most efficiently.
 
 .. code:: python
@@ -210,7 +222,7 @@ Subclasses
 ----------
 
 You can create your own queues by inheriting from existing queue classes as if
-you were using the ``queue`` module. For example, this is how you can create an
+you were using the queue module. For example, this is how you can create an
 unordered queue that contains only unique items:
 
 .. code:: python
@@ -254,49 +266,26 @@ All seven of these methods are called in exclusive access mode, so you can
 freely create your subclasses without thinking about whether your methods are
 thread-safe or not.
 
-Greenlets
----------
-
-Libraries such as ``eventlet`` and ``gevent`` use
-`greenlets <https://greenlet.readthedocs.io/en/latest/>`_ instead of
-`tasks <https://anyio.readthedocs.io/en/stable/tasks.html>`_.
-Since they do not use async-await syntax, their code is similar to synchronous
-code. There are three ways that you can tell ``culsans`` that you want to use
-greenlets instead of threads:
-
-* Set ``aiologic.lowlevel.current_green_library_tlocal.name``
-  (for the current thread).
-* Patch the ``threading`` module
-  (for the main thread).
-* Specify ``AIOLOGIC_GREEN_LIBRARY`` environment variable
-  (for all threads).
-
-The value is the name of the library that you want to use.
-
 Checkpoints
 -----------
 
 Sometimes it is useful when each asynchronous call switches execution to the
 next task and checks for cancellation and timeouts. For example, if you want to
-distribute CPU usage across all tasks. There are two ways to do this:
+distribute CPU usage across all tasks.
 
-* Set ``aiologic.lowlevel.<library>_checkpoints_cvar``
-  (for the current context).
-* Specify ``AIOLOGIC_<LIBRARY>_CHECKPOINTS`` environment variable
-  (for all contexts).
+The culsans library adopts aiologic's checkpoints, but unlike it does not
+guarantee that there will only be one per asynchronous call, due to design
+specifics.
 
-The value is ``True`` or ``False`` for the first way, and a non-empty or empty
-string for the second.
-
-Checkpoints are enabled by default for the ``trio`` library.
+See the aiologic documentation for details on how to control checkpoints.
 
 Compatibility
 =============
 
-The interfaces are compliant with the Python API version 3.13, and the
-``culsans`` library itself is fully compatible with the ``janus`` library
-version 2.0.0. If you are using ``janus`` in your application and want to
-switch to ``culsans``, all you have to do is replace this:
+The interfaces are compliant with the Python API version 3.13, and the culsans
+library itself is fully compatible with the janus library version 2.0.0. If you
+are using janus in your application and want to switch to culsans, all you have
+to do is replace this:
 
 .. code:: python
 
@@ -313,10 +302,9 @@ and everything will work!
 Performance
 ===========
 
-Being built on the ``aiologic`` package, the ``culsans`` library has
-speed advantages. When communication is performed within a single thread using
-the asynchronous API, ``culsans.Queue`` is typically 2 times faster than
-``janus.Queue``:
+Being built on the aiologic package, the culsans library has speed advantages.
+When communication is performed within a single thread using the asynchronous
+API, ``culsans.Queue`` is typically 2 times faster than ``janus.Queue``:
 
 +-------------+-------------+-------------+-------------+-------------+
 |   python    |    janus    |   culsans   |  aiologic   |   asyncio   |
@@ -377,17 +365,25 @@ for the PyPy case, which on older hardware may show a tenfold speedup or more
 in both tables, so you may find it useful to run benchmarks yourself to measure
 actual relative performance.
 
+Documentation
+=============
+
+DeepWiki: https://deepwiki.com/x42005e1f/culsans (AI generated)
+
 Communication channels
 ======================
 
-GitHub Discussions: https://github.com/x42005e1f/culsans/discussions
+GitHub Discussions: https://github.com/x42005e1f/culsans/discussions (ideas,
+questions)
 
-Feel free to post your questions and ideas here.
+GitHub Issues: https://github.com/x42005e1f/culsans/issues (bug tracker)
+
+You can also send an email to 0x42005e1f@gmail.com with any feedback.
 
 Support
 =======
 
-If you like ``culsans`` and want to support its development, star `its
+If you like culsans and want to support its development, please star `its
 repository on GitHub <https://github.com/x42005e1f/culsans>`_.
 
 .. image:: https://starchart.cc/x42005e1f/culsans.svg?variant=adaptive
@@ -396,15 +392,20 @@ repository on GitHub <https://github.com/x42005e1f/culsans>`_.
 License
 =======
 
-The ``culsans`` library is `REUSE <https://reuse.software/>`_-compliant and is
-offered under multiple licenses:
+The culsans library is `REUSE-compliant <https://api.reuse.software/info/
+github.com/x42005e1f/culsans>`_ and is offered under multiple licenses:
 
-* All original source code is licensed under `ISC <LICENSES/ISC.txt>`_.
-* All original test code is licensed under `0BSD <LICENSES/0BSD.txt>`_.
-* All documentation is licensed under `CC-BY-4.0 <LICENSES/CC-BY-4.0.txt>`_.
-* All configuration is licensed under `CC0-1.0 <LICENSES/CC0-1.0.txt>`_.
-* Some test code borrowed from
-  `python/cpython <https://github.com/python/cpython>`_ is licensed under
-  `PSF-2.0 <LICENSES/PSF-2.0.txt>`_.
+* All original source code is licensed under `ISC`_.
+* All original test code is licensed under `0BSD`_.
+* All documentation is licensed under `CC-BY-4.0`_.
+* All configuration is licensed under `CC0-1.0`_.
+* Some test code borrowed from `python/cpython <https://github.com/python/
+  cpython>`_ is licensed under `PSF-2.0`_.
 
 For more accurate information, check the individual files.
+
+.. _ISC: https://choosealicense.com/licenses/isc/
+.. _0BSD: https://choosealicense.com/licenses/0bsd/
+.. _CC-BY-4.0: https://choosealicense.com/licenses/cc-by-4.0/
+.. _CC0-1.0: https://choosealicense.com/licenses/cc0-1.0/
+.. _PSF-2.0: https://docs.python.org/3/license.html
