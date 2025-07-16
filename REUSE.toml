@@ -3,6 +3,7 @@ version = 1
 # configuration files
 [[annotations]]
 path = [
+    ".github/workflows/python-publish.yml",
     ".gitattributes",
     ".pre-commit-config.yaml",
     "pyproject.toml",
