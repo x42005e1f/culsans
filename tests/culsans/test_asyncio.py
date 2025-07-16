@@ -22,7 +22,12 @@ import unittest
 import culsans
 
 # XXX culsans change: added checkpoint support
-from aiologic.lowlevel import asyncio_checkpoints_cvar
+try:
+    from aiologic.lowlevel import async_checkpoint_enabled
+except ImportError:  # aiologic<0.15.0
+    from aiologic.lowlevel import asyncio_checkpoints_cvar
+
+    async_checkpoint_enabled = asyncio_checkpoints_cvar.get
 
 
 class QueueBasicTests(unittest.IsolatedAsyncioTestCase):
@@ -69,7 +74,7 @@ class QueueBasicTests(unittest.IsolatedAsyncioTestCase):
 
         t = asyncio.create_task(putter())
         # XXX culsans change: added checkpoint support
-        for _ in range(4 if asyncio_checkpoints_cvar.get() else 2):
+        for _ in range(4 if async_checkpoint_enabled() else 2):
             await asyncio.sleep(0)
 
         # The putter is blocked after putting two items.
@@ -339,7 +344,8 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
         t = asyncio.create_task(queue_put())
 
         self.assertEqual(1, await q.get())
-        if asyncio_checkpoints_cvar.get():
+        # XXX culsans change: added checkpoint support
+        if async_checkpoint_enabled():
             await asyncio.sleep(0)
         self.assertTrue(t.done())
         self.assertTrue(t.result())
@@ -353,7 +359,7 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
         put_c = asyncio.create_task(q.put('X'))
 
         # XXX culsans change: added checkpoint support
-        for _ in range(2 if asyncio_checkpoints_cvar.get() else 1):
+        for _ in range(2 if async_checkpoint_enabled() else 1):
             await asyncio.sleep(0)
         self.assertTrue(put_a.done())
         self.assertFalse(put_b.done())
@@ -649,7 +655,7 @@ class _QueueShutdownTestMixin:
 
         # Ensure join() task has successfully finished
         # XXX culsans change: added checkpoint support
-        for _ in range(2 if asyncio_checkpoints_cvar.get() else 1):
+        for _ in range(2 if async_checkpoint_enabled() else 1):
             await asyncio.sleep(0)
         self.assertTrue(join_task.done())
         await join_task
