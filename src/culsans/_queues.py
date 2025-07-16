@@ -492,7 +492,7 @@ class Queue(MixedQueue[T]):
 class LifoQueue(Queue[T]):
     """A subclass of Queue; retrieves most recently added entries first."""
 
-    __slots__ = ("__data",)
+    __slots__ = ("__data",)  # noqa: PLW0244
 
     __data: list[T]
 
@@ -524,7 +524,7 @@ class PriorityQueue(Queue[T]):
     Entries are typically tuples of the form: (priority number, data).
     """
 
-    __slots__ = ("__data",)
+    __slots__ = ("__data",)  # noqa: PLW0244
 
     __data: list[T]
 

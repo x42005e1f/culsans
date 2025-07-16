@@ -1,9 +1,6 @@
-# SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
-# SPDX-License-Identifier: CC0-1.0
-
 * text=auto
-
 *.py text diff=python
 
-.* text export-ignore
-.git_archival.txt text -export-ignore export-subst
+.* export-ignore
+.git_archival.txt -export-ignore export-subst
+.gitignore -export-ignore

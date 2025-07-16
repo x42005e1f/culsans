@@ -1,24 +1,14 @@
-# SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
-# SPDX-License-Identifier: CC0-1.0
-
 [build-system]
-requires = ["setuptools>=64", "setuptools_scm>=8"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [project]
 name = "culsans"
-authors = [
-    {name = "Ilya Egorov", email = "0x42005e1f@gmail.com"},
-]
+dynamic = ["version"]
 description = "Thread-safe async-aware queue for Python"
 readme = {file = "README.rst", content-type = "text/x-rst"}
+authors = [{name = "Ilya Egorov", email = "0x42005e1f@gmail.com"}]
 requires-python = ">=3.8"
-dependencies = [
-    "aiologic>=0.13.0"
-]
-dynamic = [
-    "version",
-]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -39,15 +29,43 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
     "Operating System :: OS Independent",
 ]
+keywords = [
+    "anyio",
+    "async",
+    "async-await",
+    "asyncio",
+    "communication",
+    "concurrency",
+    "eventlet",
+    "gevent",
+    "greenlet",
+    "library",
+    "mypy",
+    "python",
+    "queue",
+    "threading",
+    "thread-safety",
+    "trio",
+]
+dependencies = [
+    "aiologic>=0.13.0"
+]
 
 [project.urls]
-GitHub = "https://github.com/x42005e1f/culsans"
+Homepage = "https://github.com/x42005e1f/culsans"
 
 [tool.codespell]
 skip = [
     "tests/culsans/test_asyncio.py",
     "tests/culsans/test_queue.py",
 ]
+
+[tool.hatch.build.targets.sdist]
+exclude = [".*"]
+
+[tool.hatch.version]
+fallback-version = "0.8.1.dev0"
+source = "vcs"
 
 [tool.ruff]
 fix = true
@@ -160,6 +178,8 @@ ignore = [
     "ISC001",  # single-line-implicit-string-concatenation
     "ISC002",  # multi-line-implicit-string-concatenation
     # flake8-pyi
+    "PYI011",  # typed-argument-default-in-stub
+    "PYI029",  # str-or-repr-defined-in-stub
     "PYI053",  # string-or-bytes-too-long
     "PYI054",  # numeric-literal-too-long
     # flake8-return
@@ -179,6 +199,7 @@ ignore = [
     "SIM211",  # if-expr-with-false-true
     "SIM300",  # yoda-conditions
     # pylint
+    "PLC0414",  # useless-import-alias
     "PLC0415",  # import-outside-top-level
     "PLC2701",  # import-private-name
     "PLC2801",  # unnecessary-dunder-call
@@ -202,13 +223,16 @@ ignore = [
     # tryceratops
     "TRY003",  # raise-vanilla-args
     "TRY301",  # raise-within-try
+    "TRY400",  # error-instead-of-exception
     # perflint
     "PERF203",  # try-except-in-loop
     # refurb
     "FURB101",  # read-whole-file
     "FURB103",  # write-whole-file
+    "FURB154",  # repeated-global
     # ruff-specific rules
-    "RUF052",
+    "RUF029",  # unused-async
+    "RUF052",  # used-dummy-variable
 ]
 fixable = [
     "ALL",
@@ -245,10 +269,6 @@ unfixable = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = [
-    # pylint
-    "PLC0414",  # useless-import-alias
-]
 "benches/**.py" = [
     # flake8-print
     "T20",
@@ -263,5 +283,3 @@ unfixable = [
 case-sensitive = true
 combine-as-imports = true
 lines-between-types = 1
-
-[tool.setuptools_scm]
