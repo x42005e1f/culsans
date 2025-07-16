@@ -317,9 +317,8 @@ class Queue(MixedQueue[T]):
                     while not self._qsize():
                         self._check_closing()
 
-                        self.not_empty.wait()
+                        notified = self.not_empty.wait()
 
-                        notified = True
                         rescheduled = True
                 elif timeout < 0:
                     msg = "'timeout' must be a non-negative number"
@@ -335,9 +334,8 @@ class Queue(MixedQueue[T]):
                         if remaining <= 0:
                             raise QueueEmpty
 
-                        self.not_empty.wait(remaining)
+                        notified = self.not_empty.wait(remaining)
 
-                        notified = True
                         rescheduled = True
 
                 if not rescheduled and green_checkpoint_enabled():
@@ -371,9 +369,8 @@ class Queue(MixedQueue[T]):
                 while not self._qsize():
                     self._check_closing()
 
-                    await self.not_empty
+                    notified = await self.not_empty
 
-                    notified = True
                     rescheduled = True
 
                 if not rescheduled and async_checkpoint_enabled():
