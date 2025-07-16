@@ -24,6 +24,20 @@ from ._exceptions import (
 from ._protocols import AsyncQueue, MixedQueue, SyncQueue
 from ._proxies import AsyncQueueProxy, SyncQueueProxy
 
+try:
+    from aiologic.lowlevel import (
+        async_checkpoint_enabled,
+        green_checkpoint_enabled,
+    )
+except ImportError:  # aiologic<0.15.0
+
+    def async_checkpoint_enabled() -> bool:
+        return True
+
+    def green_checkpoint_enabled() -> bool:
+        return True
+
+
 T = TypeVar("T")
 
 
@@ -95,65 +109,85 @@ class Queue(MixedQueue[T]):
         rescheduled = False
 
         with self.mutex:
-            self._check_closing()
+            while True:
+                self._check_closing()
 
-            if 0 < self._maxsize:
-                if not block:
-                    if 0 < self._maxsize <= self._qsize():
-                        raise QueueFull
-                elif timeout is None:
-                    while 0 < self._maxsize <= self._qsize():
-                        self.not_full.wait()
-
-                        self._check_closing()
-
-                        rescheduled = True
-                elif timeout < 0:
-                    msg = "'timeout' must be a non-negative number"
-                    raise ValueError(msg)
-                else:
-                    endtime = time.monotonic() + timeout
-
-                    while 0 < self._maxsize <= self._qsize():
-                        remaining = endtime - time.monotonic()
-
-                        if remaining <= 0:
+                if 0 < self._maxsize:
+                    if not block:
+                        if 0 < self._maxsize <= self._qsize():
                             raise QueueFull
+                    elif timeout is None:
+                        while 0 < self._maxsize <= self._qsize():
+                            self.not_full.wait()
 
-                        self.not_full.wait(remaining)
+                            self._check_closing()
 
-                        self._check_closing()
+                            rescheduled = True
+                    elif timeout < 0:
+                        msg = "'timeout' must be a non-negative number"
+                        raise ValueError(msg)
+                    else:
+                        endtime = time.monotonic() + timeout
 
-                        rescheduled = True
+                        while 0 < self._maxsize <= self._qsize():
+                            remaining = endtime - time.monotonic()
+
+                            if remaining <= 0:
+                                raise QueueFull
+
+                            self.not_full.wait(remaining)
+
+                            self._check_closing()
+
+                            rescheduled = True
+
+                if not rescheduled and green_checkpoint_enabled():
+                    self.mutex.release()
+
+                    try:
+                        green_checkpoint()
+                    finally:
+                        self.mutex.acquire()
+
+                    rescheduled = True
+                else:
+                    break
 
             self._put(item)
             self._unfinished_tasks += 1
 
             self.not_empty.notify()
-
-        if not rescheduled:
-            green_checkpoint()
 
     async def async_put(self, item: T) -> None:
         rescheduled = False
 
         with self.mutex:
-            self._check_closing()
-
-            while 0 < self._maxsize <= self._qsize():
-                await self.not_full
-
+            while True:
                 self._check_closing()
 
-                rescheduled = True
+                while 0 < self._maxsize <= self._qsize():
+                    await self.not_full
+
+                    self._check_closing()
+
+                    rescheduled = True
+
+                if not rescheduled and async_checkpoint_enabled():
+                    self.mutex.release()
+
+                    try:
+                        await async_checkpoint()
+                    finally:
+                        self.mutex.acquire()
+
+                    rescheduled = True
+                else:
+                    break
 
             self._put(item)
             self._unfinished_tasks += 1
 
             self.not_empty.notify()
-
-        if not rescheduled:
-            await async_checkpoint()
 
     def put_nowait(self, item: T) -> None:
         with self.mutex:
@@ -171,43 +205,53 @@ class Queue(MixedQueue[T]):
         rescheduled = False
 
         with self.mutex:
-            if not block:
-                if not self._qsize():
-                    self._check_closing()
+            while True:
+                if not block:
+                    if not self._qsize():
+                        self._check_closing()
 
-                    raise QueueEmpty
-            elif timeout is None:
-                while not self._qsize():
-                    self._check_closing()
-
-                    self.not_empty.wait()
-
-                    rescheduled = True
-            elif timeout < 0:
-                msg = "'timeout' must be a non-negative number"
-                raise ValueError(msg)
-            else:
-                endtime = time.monotonic() + timeout
-
-                while not self._qsize():
-                    self._check_closing()
-
-                    remaining = endtime - time.monotonic()
-
-                    if remaining <= 0:
                         raise QueueEmpty
+                elif timeout is None:
+                    while not self._qsize():
+                        self._check_closing()
 
-                    self.not_empty.wait(remaining)
+                        self.not_empty.wait()
+
+                        rescheduled = True
+                elif timeout < 0:
+                    msg = "'timeout' must be a non-negative number"
+                    raise ValueError(msg)
+                else:
+                    endtime = time.monotonic() + timeout
+
+                    while not self._qsize():
+                        self._check_closing()
+
+                        remaining = endtime - time.monotonic()
+
+                        if remaining <= 0:
+                            raise QueueEmpty
+
+                        self.not_empty.wait(remaining)
+
+                        rescheduled = True
+
+                if not rescheduled and green_checkpoint_enabled():
+                    self.mutex.release()
+
+                    try:
+                        green_checkpoint()
+                    finally:
+                        self.mutex.acquire()
 
                     rescheduled = True
+                else:
+                    break
 
             item = self._get()
 
             if 0 >= self._maxsize or self._maxsize > self._qsize():
                 self.not_full.notify()
-
-        if not rescheduled:
-            green_checkpoint()
 
         return item
 
@@ -215,20 +259,30 @@ class Queue(MixedQueue[T]):
         rescheduled = False
 
         with self.mutex:
-            while not self._qsize():
-                self._check_closing()
+            while True:
+                while not self._qsize():
+                    self._check_closing()
 
-                await self.not_empty
+                    await self.not_empty
 
-                rescheduled = True
+                    rescheduled = True
+
+                if not rescheduled and async_checkpoint_enabled():
+                    self.mutex.release()
+
+                    try:
+                        await async_checkpoint()
+                    finally:
+                        self.mutex.acquire()
+
+                    rescheduled = True
+                else:
+                    break
 
             item = self._get()
 
             if 0 >= self._maxsize or self._maxsize > self._qsize():
                 self.not_full.notify()
-
-        if not rescheduled:
-            await async_checkpoint()
 
         return item
 
@@ -248,72 +302,97 @@ class Queue(MixedQueue[T]):
 
     def sync_peek(self, block: bool = True, timeout: float | None = None) -> T:
         rescheduled = False
+        notified = False
 
         with self.mutex:
             self._check_peekable()
 
-            if not block:
-                if not self._qsize():
-                    self._check_closing()
+            while True:
+                if not block:
+                    if not self._qsize():
+                        self._check_closing()
 
-                    raise QueueEmpty
-            elif timeout is None:
-                while not self._qsize():
-                    self._check_closing()
-
-                    self.not_empty.wait()
-
-                    rescheduled = True
-            elif timeout < 0:
-                msg = "'timeout' must be a non-negative number"
-                raise ValueError(msg)
-            else:
-                endtime = time.monotonic() + timeout
-
-                while not self._qsize():
-                    self._check_closing()
-
-                    remaining = endtime - time.monotonic()
-
-                    if remaining <= 0:
                         raise QueueEmpty
+                elif timeout is None:
+                    while not self._qsize():
+                        self._check_closing()
 
-                    self.not_empty.wait(remaining)
+                        self.not_empty.wait()
+
+                        notified = True
+                        rescheduled = True
+                elif timeout < 0:
+                    msg = "'timeout' must be a non-negative number"
+                    raise ValueError(msg)
+                else:
+                    endtime = time.monotonic() + timeout
+
+                    while not self._qsize():
+                        self._check_closing()
+
+                        remaining = endtime - time.monotonic()
+
+                        if remaining <= 0:
+                            raise QueueEmpty
+
+                        self.not_empty.wait(remaining)
+
+                        notified = True
+                        rescheduled = True
+
+                if not rescheduled and green_checkpoint_enabled():
+                    self.mutex.release()
+
+                    try:
+                        green_checkpoint()
+                    finally:
+                        self.mutex.acquire()
 
                     rescheduled = True
+                else:
+                    break
 
             try:
                 item = self._peek()
             finally:
-                if rescheduled:
+                if notified:
                     self.not_empty.notify()
-
-        if not rescheduled:
-            green_checkpoint()
 
         return item
 
     async def async_peek(self) -> T:
         rescheduled = False
+        notified = False
 
         with self.mutex:
             self._check_peekable()
 
-            while not self._qsize():
-                self._check_closing()
+            while True:
+                while not self._qsize():
+                    self._check_closing()
 
-                await self.not_empty
+                    await self.not_empty
 
-                rescheduled = True
+                    notified = True
+                    rescheduled = True
+
+                if not rescheduled and async_checkpoint_enabled():
+                    self.mutex.release()
+
+                    try:
+                        await async_checkpoint()
+                    finally:
+                        self.mutex.acquire()
+
+                    rescheduled = True
+                else:
+                    break
 
             try:
                 item = self._peek()
             finally:
-                if rescheduled:
+                if notified:
                     self.not_empty.notify()
-
-        if not rescheduled:
-            await async_checkpoint()
 
         return item
 

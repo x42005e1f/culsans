@@ -344,9 +344,6 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
         t = asyncio.create_task(queue_put())
 
         self.assertEqual(1, await q.get())
-        # XXX culsans change: added checkpoint support
-        if async_checkpoint_enabled():
-            await asyncio.sleep(0)
         self.assertTrue(t.done())
         self.assertTrue(t.result())
 
@@ -396,11 +393,11 @@ class QueuePutTests(unittest.IsolatedAsyncioTestCase):
 
         # XXX culsans change: added Python<3.10 support
         await asyncio.gather(
-            getter(),
             putter(0),
             putter(1),
             putter(2),
             putter(3),
+            getter(),
         )
 
     async def test_cancelled_puts_not_being_held_in_self_putters(self):
