@@ -9,7 +9,7 @@ import time
 
 from collections import deque
 from heapq import heappop, heappush
-from typing import TypeVar
+from typing import Any, Protocol, TypeVar
 
 from aiologic import Condition
 from aiologic.lowlevel import async_checkpoint, green_checkpoint
@@ -39,6 +39,23 @@ except ImportError:  # aiologic<0.15.0
 
 
 T = TypeVar("T")
+T_contra = TypeVar("T_contra", contravariant=True)
+
+
+class SupportsBool(Protocol):
+    __slots__ = ()
+
+    def __bool__(self, /) -> bool: ...
+
+
+class RichComparable(Protocol[T_contra]):
+    __slots__ = ()
+
+    def __lt__(self, other: T_contra, /) -> SupportsBool: ...
+    def __gt__(self, other: T_contra, /) -> SupportsBool: ...
+
+
+RichComparableT = TypeVar("RichComparableT", bound=RichComparable[Any])
 
 
 class Queue(MixedQueue[T]):
@@ -594,7 +611,7 @@ class LifoQueue(Queue[T]):
         self.__data.clear()
 
 
-class PriorityQueue(Queue[T]):
+class PriorityQueue(Queue[RichComparableT]):
     """A subclass of Queue; retrieves entries in priority order (lowest first).
 
     Entries are typically tuples of the form: (priority number, data).
@@ -602,7 +619,7 @@ class PriorityQueue(Queue[T]):
 
     __slots__ = ("__data",)  # noqa: PLW0244
 
-    __data: list[T]
+    __data: list[RichComparableT]
 
     def _init(self, maxsize: int) -> None:
         self.__data = []
@@ -610,13 +627,13 @@ class PriorityQueue(Queue[T]):
     def _qsize(self) -> int:
         return len(self.__data)
 
-    def _put(self, item: T) -> None:
+    def _put(self, item: RichComparableT) -> None:
         heappush(self.__data, item)
 
-    def _get(self) -> T:
+    def _get(self) -> RichComparableT:
         return heappop(self.__data)
 
-    def _peek(self) -> T:
+    def _peek(self) -> RichComparableT:
         return self.__data[0]
 
     def _peekable(self) -> bool:
