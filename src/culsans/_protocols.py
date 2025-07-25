@@ -7,10 +7,10 @@ from __future__ import annotations
 
 from typing import Protocol, TypeVar
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 
 
-class BaseQueue(Protocol[T]):
+class BaseQueue(Protocol[_T]):
     __slots__ = ()
 
     def peekable(self) -> bool:
@@ -44,7 +44,7 @@ class BaseQueue(Protocol[T]):
         """
         ...
 
-    def put_nowait(self, item: T) -> None:
+    def put_nowait(self, item: _T) -> None:
         """Put an item into the queue without blocking.
 
         Only enqueue the item if a free slot is immediately available.
@@ -54,7 +54,7 @@ class BaseQueue(Protocol[T]):
         """
         ...
 
-    def get_nowait(self) -> T:
+    def get_nowait(self) -> _T:
         """Remove and return an item from the queue without blocking.
 
         Only get an item if one is immediately available.
@@ -65,7 +65,7 @@ class BaseQueue(Protocol[T]):
         """
         ...
 
-    def peek_nowait(self) -> T:
+    def peek_nowait(self) -> _T:
         """Return an item from the queue without blocking.
 
         Only peek an item if one is immediately available.
@@ -127,12 +127,12 @@ class BaseQueue(Protocol[T]):
     def maxsize(self, value: int) -> None: ...
 
 
-class SyncQueue(BaseQueue[T], Protocol[T]):
+class SyncQueue(BaseQueue[_T], Protocol[_T]):
     __slots__ = ()
 
     def put(
         self,
-        item: T,
+        item: _T,
         block: bool = True,
         timeout: float | None = None,
     ) -> None:
@@ -150,7 +150,7 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         """
         ...
 
-    def get(self, block: bool = True, timeout: float | None = None) -> T:
+    def get(self, block: bool = True, timeout: float | None = None) -> _T:
         """Remove and return an item from the queue.
 
         If optional args 'block' is True and 'timeout' is None (the default),
@@ -166,7 +166,7 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         """
         ...
 
-    def peek(self, block: bool = True, timeout: float | None = None) -> T:
+    def peek(self, block: bool = True, timeout: float | None = None) -> _T:
         """Return an item from the queue without removing it.
 
         If optional args 'block' is True and 'timeout' is None (the default),
@@ -194,10 +194,10 @@ class SyncQueue(BaseQueue[T], Protocol[T]):
         ...
 
 
-class AsyncQueue(BaseQueue[T], Protocol[T]):
+class AsyncQueue(BaseQueue[_T], Protocol[_T]):
     __slots__ = ()
 
-    async def put(self, item: T) -> None:
+    async def put(self, item: _T) -> None:
         """Put an item into the queue.
 
         If the queue is full, wait until a free slot is available before adding
@@ -207,7 +207,7 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
         """
         ...
 
-    async def get(self) -> T:
+    async def get(self) -> _T:
         """Remove and return an item from the queue.
 
         If queue is empty, wait until an item is available.
@@ -217,7 +217,7 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
         """
         ...
 
-    async def peek(self) -> T:
+    async def peek(self) -> _T:
         """Return an item from the queue without removing it.
 
         If queue is empty, wait until an item is available.
@@ -239,12 +239,12 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
         ...
 
 
-class MixedQueue(BaseQueue[T], Protocol[T]):
+class MixedQueue(BaseQueue[_T], Protocol[_T]):
     __slots__ = ()
 
     def sync_put(
         self,
-        item: T,
+        item: _T,
         block: bool = True,
         timeout: float | None = None,
     ) -> None:
@@ -262,7 +262,7 @@ class MixedQueue(BaseQueue[T], Protocol[T]):
         """
         ...
 
-    async def async_put(self, item: T) -> None:
+    async def async_put(self, item: _T) -> None:
         """Put an item into the queue.
 
         If the queue is full, wait until a free slot is available before adding
@@ -276,7 +276,7 @@ class MixedQueue(BaseQueue[T], Protocol[T]):
         self,
         block: bool = True,
         timeout: float | None = None,
-    ) -> T:
+    ) -> _T:
         """Remove and return an item from the queue.
 
         If optional args 'block' is True and 'timeout' is None (the default),
@@ -292,7 +292,7 @@ class MixedQueue(BaseQueue[T], Protocol[T]):
         """
         ...
 
-    async def async_get(self) -> T:
+    async def async_get(self) -> _T:
         """Remove and return an item from the queue.
 
         If queue is empty, wait until an item is available.
@@ -306,7 +306,7 @@ class MixedQueue(BaseQueue[T], Protocol[T]):
         self,
         block: bool = True,
         timeout: float | None = None,
-    ) -> T:
+    ) -> _T:
         """Return an item from the queue without removing it.
 
         If optional args 'block' is True and 'timeout' is None (the default),
@@ -322,7 +322,7 @@ class MixedQueue(BaseQueue[T], Protocol[T]):
         """
         ...
 
-    async def async_peek(self) -> T:
+    async def async_peek(self) -> _T:
         """Return an item from the queue without removing it.
 
         If queue is empty, wait until an item is available.
@@ -355,7 +355,7 @@ class MixedQueue(BaseQueue[T], Protocol[T]):
         ...
 
     @property
-    def sync_q(self) -> SyncQueue[T]: ...
+    def sync_q(self) -> SyncQueue[_T]: ...
 
     @property
-    def async_q(self) -> AsyncQueue[T]: ...
+    def async_q(self) -> AsyncQueue[_T]: ...

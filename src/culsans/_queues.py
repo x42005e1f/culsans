@@ -38,35 +38,35 @@ except ImportError:  # aiologic<0.15.0
         return True
 
 
-T = TypeVar("T")
-T_contra = TypeVar("T_contra", contravariant=True)
+_T = TypeVar("_T")
+_T_contra = TypeVar("_T_contra", contravariant=True)
 
 
-class SupportsBool(Protocol):
+class _SupportsBool(Protocol):
     __slots__ = ()
 
     def __bool__(self, /) -> bool: ...
 
 
-class SupportsLT(Protocol[T_contra]):
+class _SupportsLT(Protocol[_T_contra]):
     __slots__ = ()
 
-    def __lt__(self, other: T_contra, /) -> SupportsBool: ...
+    def __lt__(self, other: _T_contra, /) -> _SupportsBool: ...
 
 
-class SupportsGT(Protocol[T_contra]):
+class _SupportsGT(Protocol[_T_contra]):
     __slots__ = ()
 
-    def __gt__(self, other: T_contra, /) -> SupportsBool: ...
+    def __gt__(self, other: _T_contra, /) -> _SupportsBool: ...
 
 
-RichComparableT = TypeVar(
-    "RichComparableT",
-    bound=Union[SupportsLT[Any], SupportsGT[Any]],
+_RichComparableT = TypeVar(
+    "_RichComparableT",
+    bound=Union[_SupportsLT[Any], _SupportsGT[Any]],
 )
 
 
-class Queue(MixedQueue[T]):
+class Queue(MixedQueue[_T]):
     """Create a queue object with a given maximum size.
 
     If maxsize is <= 0, the queue size is infinite.
@@ -84,7 +84,7 @@ class Queue(MixedQueue[T]):
         "not_full",
     )
 
-    __data: deque[T]
+    __data: deque[_T]
 
     _maxsize: int
     _unfinished_tasks: int
@@ -127,7 +127,7 @@ class Queue(MixedQueue[T]):
 
     def sync_put(
         self,
-        item: T,
+        item: _T,
         block: bool = True,
         timeout: float | None = None,
     ) -> None:
@@ -183,7 +183,7 @@ class Queue(MixedQueue[T]):
 
             self.not_empty.notify()
 
-    async def async_put(self, item: T) -> None:
+    async def async_put(self, item: _T) -> None:
         rescheduled = False
 
         with self.mutex:
@@ -214,7 +214,7 @@ class Queue(MixedQueue[T]):
 
             self.not_empty.notify()
 
-    def put_nowait(self, item: T) -> None:
+    def put_nowait(self, item: _T) -> None:
         with self.mutex:
             self._check_closing()
 
@@ -226,7 +226,7 @@ class Queue(MixedQueue[T]):
 
             self.not_empty.notify()
 
-    def sync_get(self, block: bool = True, timeout: float | None = None) -> T:
+    def sync_get(self, block: bool = True, timeout: float | None = None) -> _T:
         rescheduled = False
 
         with self.mutex:
@@ -280,7 +280,7 @@ class Queue(MixedQueue[T]):
 
         return item
 
-    async def async_get(self) -> T:
+    async def async_get(self) -> _T:
         rescheduled = False
 
         with self.mutex:
@@ -311,7 +311,7 @@ class Queue(MixedQueue[T]):
 
         return item
 
-    def get_nowait(self) -> T:
+    def get_nowait(self) -> _T:
         with self.mutex:
             if not self._qsize():
                 self._check_closing()
@@ -325,7 +325,11 @@ class Queue(MixedQueue[T]):
 
         return item
 
-    def sync_peek(self, block: bool = True, timeout: float | None = None) -> T:
+    def sync_peek(
+        self,
+        block: bool = True,
+        timeout: float | None = None,
+    ) -> _T:
         rescheduled = False
         notified = False
 
@@ -383,7 +387,7 @@ class Queue(MixedQueue[T]):
 
         return item
 
-    async def async_peek(self) -> T:
+    async def async_peek(self) -> _T:
         rescheduled = False
         notified = False
 
@@ -418,7 +422,7 @@ class Queue(MixedQueue[T]):
 
         return item
 
-    def peek_nowait(self) -> T:
+    def peek_nowait(self) -> _T:
         with self.mutex:
             self._check_peekable()
 
@@ -530,13 +534,13 @@ class Queue(MixedQueue[T]):
     def _qsize(self) -> int:
         return len(self.__data)
 
-    def _put(self, item: T) -> None:
+    def _put(self, item: _T) -> None:
         self.__data.append(item)
 
-    def _get(self) -> T:
+    def _get(self) -> _T:
         return self.__data.popleft()
 
-    def _peek(self) -> T:
+    def _peek(self) -> _T:
         return self.__data[0]
 
     def _peekable(self) -> bool:
@@ -546,11 +550,11 @@ class Queue(MixedQueue[T]):
         self.__data.clear()
 
     @property
-    def sync_q(self) -> SyncQueue[T]:
+    def sync_q(self) -> SyncQueue[_T]:
         return SyncQueueProxy(self)
 
     @property
-    def async_q(self) -> AsyncQueue[T]:
+    def async_q(self) -> AsyncQueue[_T]:
         return AsyncQueueProxy(self)
 
     @property
@@ -590,12 +594,12 @@ class Queue(MixedQueue[T]):
             self._maxsize = value
 
 
-class LifoQueue(Queue[T]):
+class LifoQueue(Queue[_T]):
     """A subclass of Queue; retrieves most recently added entries first."""
 
     __slots__ = ("__data",)  # noqa: PLW0244
 
-    __data: list[T]
+    __data: list[_T]
 
     def _init(self, maxsize: int) -> None:
         self.__data = []
@@ -603,13 +607,13 @@ class LifoQueue(Queue[T]):
     def _qsize(self) -> int:
         return len(self.__data)
 
-    def _put(self, item: T) -> None:
+    def _put(self, item: _T) -> None:
         self.__data.append(item)
 
-    def _get(self) -> T:
+    def _get(self) -> _T:
         return self.__data.pop()
 
-    def _peek(self) -> T:
+    def _peek(self) -> _T:
         return self.__data[-1]
 
     def _peekable(self) -> bool:
@@ -619,7 +623,7 @@ class LifoQueue(Queue[T]):
         self.__data.clear()
 
 
-class PriorityQueue(Queue[RichComparableT]):
+class PriorityQueue(Queue[_RichComparableT]):
     """A subclass of Queue; retrieves entries in priority order (lowest first).
 
     Entries are typically tuples of the form: (priority number, data).
@@ -627,7 +631,7 @@ class PriorityQueue(Queue[RichComparableT]):
 
     __slots__ = ("__data",)  # noqa: PLW0244
 
-    __data: list[RichComparableT]
+    __data: list[_RichComparableT]
 
     def _init(self, maxsize: int) -> None:
         self.__data = []
@@ -635,13 +639,13 @@ class PriorityQueue(Queue[RichComparableT]):
     def _qsize(self) -> int:
         return len(self.__data)
 
-    def _put(self, item: RichComparableT) -> None:
+    def _put(self, item: _RichComparableT) -> None:
         heappush(self.__data, item)
 
-    def _get(self) -> RichComparableT:
+    def _get(self) -> _RichComparableT:
         return heappop(self.__data)
 
-    def _peek(self) -> RichComparableT:
+    def _peek(self) -> _RichComparableT:
         return self.__data[0]
 
     def _peekable(self) -> bool:
