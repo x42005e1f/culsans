@@ -9,7 +9,7 @@ import time
 
 from collections import deque
 from heapq import heappop, heappush
-from typing import Any, Protocol, TypeVar
+from typing import Any, Protocol, TypeVar, Union
 
 from aiologic import Condition
 from aiologic.lowlevel import async_checkpoint, green_checkpoint
@@ -48,14 +48,22 @@ class SupportsBool(Protocol):
     def __bool__(self, /) -> bool: ...
 
 
-class RichComparable(Protocol[T_contra]):
+class SupportsLT(Protocol[T_contra]):
     __slots__ = ()
 
     def __lt__(self, other: T_contra, /) -> SupportsBool: ...
+
+
+class SupportsGT(Protocol[T_contra]):
+    __slots__ = ()
+
     def __gt__(self, other: T_contra, /) -> SupportsBool: ...
 
 
-RichComparableT = TypeVar("RichComparableT", bound=RichComparable[Any])
+RichComparableT = TypeVar(
+    "RichComparableT",
+    bound=Union[SupportsLT[Any], SupportsGT[Any]],
+)
 
 
 class Queue(MixedQueue[T]):
