@@ -13,7 +13,6 @@ from typing import Any, Protocol, TypeVar, Union
 
 from aiologic import Condition
 from aiologic.lowlevel import async_checkpoint, green_checkpoint
-from aiologic.lowlevel._thread import LockType, allocate_lock
 
 from ._exceptions import (
     QueueEmpty,
@@ -23,6 +22,14 @@ from ._exceptions import (
 )
 from ._protocols import AsyncQueue, MixedQueue, SyncQueue
 from ._proxies import AsyncQueueProxy, SyncQueueProxy
+
+try:
+    from aiologic.lowlevel import ThreadLock, create_thread_lock
+except ImportError:  # aiologic<0.15.0
+    from aiologic.lowlevel._thread import (
+        LockType as ThreadLock,
+        allocate_lock as create_thread_lock,
+    )
 
 try:
     from aiologic.lowlevel import (
@@ -90,18 +97,18 @@ class Queue(MixedQueue[_T]):
     _unfinished_tasks: int
     _is_shutdown: bool
 
-    mutex: LockType
+    mutex: ThreadLock
 
-    not_full: Condition[LockType]
-    not_empty: Condition[LockType]
-    all_tasks_done: Condition[LockType]
+    not_full: Condition[ThreadLock]
+    not_empty: Condition[ThreadLock]
+    all_tasks_done: Condition[ThreadLock]
 
     def __init__(self, maxsize: int = 0) -> None:
         self._maxsize = maxsize
         self._unfinished_tasks = 0
         self._is_shutdown = False
 
-        self.mutex = mutex = allocate_lock()
+        self.mutex = mutex = create_thread_lock()
 
         self.not_full = Condition(mutex)  # putters
         self.not_empty = Condition(mutex)  # getters
