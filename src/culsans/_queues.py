@@ -26,7 +26,7 @@ from ._proxies import AsyncQueueProxy, SyncQueueProxy
 try:
     from aiologic.lowlevel import ThreadLock, create_thread_lock
 except ImportError:  # aiologic<0.15.0
-    from aiologic.lowlevel._thread import (
+    from aiologic.lowlevel._thread import (  # type: ignore[assignment]
         LockType as ThreadLock,
         allocate_lock as create_thread_lock,
     )
