@@ -33,13 +33,5 @@ from ._queues import (
     Queue as Queue,
 )
 
-# modify __module__ for shorter repr()
-if not __import__("typing").TYPE_CHECKING:
-    for __value in list(globals().values()):
-        if getattr(__value, "__module__", "").startswith(f"{__name__}."):
-            try:
-                __value.__module__ = __name__
-            except AttributeError:
-                pass
-
-        del __value
+# update .__module__ attributes for shorter representation
+__import__(f"{__name__}._utils")._utils._update_metadata(globals())
