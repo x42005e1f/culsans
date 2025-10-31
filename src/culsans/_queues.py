@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import sys
 import time
 
 from collections import deque
@@ -22,6 +23,11 @@ from ._exceptions import (
 )
 from ._protocols import AsyncQueue, MixedQueue, SyncQueue
 from ._proxies import AsyncQueueProxy, SyncQueueProxy
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
 
 try:
     from aiologic.lowlevel import ThreadLock, create_thread_lock
@@ -664,24 +670,31 @@ class LifoQueue(Queue[_T]):
 
     __data: list[_T]
 
+    @override
     def _init(self, maxsize: int) -> None:
         self.__data = []
 
+    @override
     def _qsize(self) -> int:
         return len(self.__data)
 
+    @override
     def _put(self, item: _T) -> None:
         self.__data.append(item)
 
+    @override
     def _get(self) -> _T:
         return self.__data.pop()
 
+    @override
     def _peek(self) -> _T:
         return self.__data[-1]
 
+    @override
     def _peekable(self) -> bool:
         return True
 
+    @override
     def _clear(self) -> None:
         self.__data.clear()
 
@@ -696,23 +709,30 @@ class PriorityQueue(Queue[_RichComparableT]):
 
     __data: list[_RichComparableT]
 
+    @override
     def _init(self, maxsize: int) -> None:
         self.__data = []
 
+    @override
     def _qsize(self) -> int:
         return len(self.__data)
 
+    @override
     def _put(self, item: _RichComparableT) -> None:
         heappush(self.__data, item)
 
+    @override
     def _get(self) -> _RichComparableT:
         return heappop(self.__data)
 
+    @override
     def _peek(self) -> _RichComparableT:
         return self.__data[0]
 
+    @override
     def _peekable(self) -> bool:
         return True
 
+    @override
     def _clear(self) -> None:
         self.__data.clear()
