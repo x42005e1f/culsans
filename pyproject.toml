@@ -68,6 +68,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/x42005e1f/culsans"
+Documentation = "https://culsans.readthedocs.io"
 
 [tool.codespell]
 skip = [
