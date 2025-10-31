@@ -366,7 +366,7 @@ class MixedQueue(BaseQueue[_T], Protocol[_T]):
     @property
     def sync_q(self) -> SyncQueue[_T]:
         """
-        A proxy compatible with the standard queues from the :mod:`queue`
+        An interface compatible with the standard queues from the :mod:`queue`
         module.
         """
         ...
@@ -374,8 +374,8 @@ class MixedQueue(BaseQueue[_T], Protocol[_T]):
     @property
     def async_q(self) -> AsyncQueue[_T]:
         """
-        A proxy compatible with the standard queues from the :mod:`asyncio`
-        module.
+        An interface compatible with the standard queues from the
+        :mod:`asyncio` module.
         """
         ...
 

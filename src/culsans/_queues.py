@@ -21,7 +21,7 @@ from ._exceptions import (
     QueueShutDown,
     UnsupportedOperation,
 )
-from ._protocols import AsyncQueue, MixedQueue, SyncQueue
+from ._protocols import MixedQueue
 from ._proxies import AsyncQueueProxy, SyncQueueProxy
 
 if sys.version_info >= (3, 12):
@@ -602,11 +602,11 @@ class Queue(MixedQueue[_T]):
         self.__data.clear()
 
     @property
-    def sync_q(self) -> SyncQueue[_T]:
+    def sync_q(self) -> SyncQueueProxy[_T]:
         return SyncQueueProxy(self)
 
     @property
-    def async_q(self) -> AsyncQueue[_T]:
+    def async_q(self) -> AsyncQueueProxy[_T]:
         return AsyncQueueProxy(self)
 
     @property
