@@ -2,6 +2,18 @@
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+docs = [
+    "docutils>=0.17",
+    "myst-parser",
+    "packaging",
+    "Sphinx",
+    "sphinx-copybutton",
+    "sphinx-inline-tabs",
+    "sphinx-rtd-theme",
+    "sphinxcontrib.autodoc-inherit-overload; python_version>='3.11'",
+]
+
 [project]
 name = "culsans"
 dynamic = ["version"]

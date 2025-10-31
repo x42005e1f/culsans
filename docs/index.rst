@@ -1,0 +1,39 @@
+..
+  SPDX-FileCopyrightText: 2025 Ilya Egorov <0x42005e1f@gmail.com>
+  SPDX-License-Identifier: CC-BY-4.0
+
+=======
+culsans
+=======
+
+.. include:: ../README.rst
+  :start-after: .. description-start-marker
+  :end-before: .. description-end-marker
+
+.. toctree::
+  :maxdepth: 2
+  :hidden:
+
+  api
+
+.. toctree::
+  :caption: Quickstart
+  :maxdepth: 3
+  :hidden:
+
+  installation
+
+.. toctree::
+  :caption: Meta
+  :maxdepth: 1
+  :hidden:
+
+  license
+
+.. toctree::
+  :caption: Links
+  :hidden:
+
+  DeepWiki <https://deepwiki.com/x42005e1f/culsans>
+  GitHub <https://github.com/x42005e1f/culsans>
+  PyPI <https://pypi.org/project/culsans/>

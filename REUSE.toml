@@ -6,6 +6,7 @@ path = [
     ".github/workflows/python-publish.yml",
     ".gitattributes",
     ".pre-commit-config.yaml",
+    ".readthedocs.yaml",
     "pyproject.toml",
 ]
 SPDX-FileCopyrightText = "2025 Ilya Egorov <0x42005e1f@gmail.com>"

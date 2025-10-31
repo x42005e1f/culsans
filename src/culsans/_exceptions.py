@@ -17,14 +17,14 @@ if sys.version_info >= (3, 13):
 
     class QueueShutDown(SyncQueueShutDown, AsyncQueueShutDown):
         """
-        Raised when put/get with shut-down queue.
+        Raised when put/get/peek with shut-down queue.
         """
 
 else:
 
     class QueueShutDown(Exception):
         """
-        Raised when put/get with shut-down queue.
+        Raised when put/get/peek with shut-down queue.
         """
 
     SyncQueueShutDown = QueueShutDown

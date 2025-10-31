@@ -21,6 +21,8 @@ culsans
   :target: #features
   :alt:
 
+.. description-start-marker
+
 Mixed sync-async queue, supposed to be used for communicating between classic
 synchronous (threaded) code and asynchronous one, between two asynchronous
 codes in different threads, and for any other combination that you want. Based
@@ -41,8 +43,12 @@ Synchronous is fully compatible with `standard queue <https://docs.python.org/
 3/library/queue.html>`_, asynchronous one follows `asyncio queue design
 <https://docs.python.org/3/library/asyncio-queue.html>`_.
 
+.. description-end-marker
+
 Installation
 ============
+
+.. installation-start-marker
 
 Install from `PyPI <https://pypi.org/project/culsans/>`_ (stable):
 
@@ -58,6 +64,8 @@ Or from `GitHub <https://github.com/x42005e1f/culsans>`_ (latest):
 
 You can also use other package managers, such as `uv <https://github.com/
 astral-sh/uv>`_.
+
+.. installation-end-marker
 
 Usage
 =====
@@ -392,6 +400,8 @@ repository on GitHub <https://github.com/x42005e1f/culsans>`_.
 License
 =======
 
+.. license-start-marker
+
 The culsans library is `REUSE-compliant <https://api.reuse.software/info/
 github.com/x42005e1f/culsans>`_ and is offered under multiple licenses:
 
@@ -409,3 +419,5 @@ For more accurate information, check the individual files.
 .. _CC-BY-4.0: https://choosealicense.com/licenses/cc-by-4.0/
 .. _CC0-1.0: https://choosealicense.com/licenses/cc0-1.0/
 .. _PSF-2.0: https://docs.python.org/3/license.html
+
+.. license-end-marker
