@@ -13,6 +13,11 @@ _T = TypeVar("_T")
 
 
 class SyncQueueProxy(SyncQueue[_T]):
+    """
+    A proxy that implements the :class:`SyncQueue` protocol by wrapping a mixed
+    queue.
+    """
+
     __slots__ = ("wrapped",)
 
     wrapped: MixedQueue[_T]
@@ -89,6 +94,11 @@ class SyncQueueProxy(SyncQueue[_T]):
 
 
 class AsyncQueueProxy(AsyncQueue[_T]):
+    """
+    A proxy that implements the :class:`AsyncQueue` protocol by wrapping a
+    mixed queue.
+    """
+
     __slots__ = ("wrapped",)
 
     wrapped: MixedQueue[_T]

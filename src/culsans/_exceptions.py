@@ -16,12 +16,16 @@ if sys.version_info >= (3, 13):
     SyncQueueShutDown = SyncShutDown
 
     class QueueShutDown(SyncQueueShutDown, AsyncQueueShutDown):
-        """Raised when put/get with shut-down queue."""
+        """
+        Raised when put/get with shut-down queue.
+        """
 
 else:
 
     class QueueShutDown(Exception):
-        """Raised when put/get with shut-down queue."""
+        """
+        Raised when put/get with shut-down queue.
+        """
 
     SyncQueueShutDown = QueueShutDown
     AsyncQueueShutDown = QueueShutDown
@@ -34,12 +38,18 @@ SyncQueueFull = SyncFull
 
 
 class QueueFull(SyncQueueFull, AsyncQueueFull):
-    """Raised when non-blocking put with full queue."""
+    """
+    Raised when non-blocking put with full queue.
+    """
 
 
 class QueueEmpty(SyncQueueEmpty, AsyncQueueEmpty):
-    """Raised when non-blocking get with empty queue."""
+    """
+    Raised when non-blocking get/peek with empty queue.
+    """
 
 
 class UnsupportedOperation(ValueError):
-    """Raised when peek with non-peekable queue."""
+    """
+    Raised when peek with non-peekable queue.
+    """

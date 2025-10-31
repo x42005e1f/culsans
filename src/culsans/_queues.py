@@ -74,9 +74,13 @@ _RichComparableT = TypeVar(
 
 
 class Queue(MixedQueue[_T]):
-    """Create a queue object with a given maximum size.
+    """
+    A mixed sync-async queue that is:
 
-    If maxsize is <= 0, the queue size is infinite.
+    * :abbr:`MPMC (multi-producer, multi-consumer)`
+    * :abbr:`FIFO (first-in, first-out)`
+
+    Compliant with the Janus API version 2.0.0.
     """
 
     __slots__ = (
@@ -104,6 +108,14 @@ class Queue(MixedQueue[_T]):
     all_tasks_done: Condition[ThreadLock]
 
     def __init__(self, maxsize: int = 0) -> None:
+        """
+        Create a queue object with the given maximum size.
+
+        if *maxsize* is <= 0, the queue size if infinite. If it is an integer
+        greater that 0, then the put methods block when the queue reaches
+        *maxsize* until an item is removed by the get methods.
+        """
+
         self._maxsize = maxsize
         self._unfinished_tasks = 0
         self._is_shutdown = False
@@ -496,9 +508,28 @@ class Queue(MixedQueue[_T]):
             self.not_full.notify_all()
 
     def close(self) -> None:
+        """
+        Close the queue.
+
+        This method is provided for compatibility with the Janus queues. Use
+        :meth:`queue.shutdown(immediate=True) <BaseQueue.shutdown>` as a direct
+        substitute.
+        """
+
         self.shutdown(immediate=True)
 
     async def wait_closed(self) -> None:
+        """
+        Wait for finishing all pending activities.
+
+        This method is provided for compatibility with the Janus queues. It
+        actually does nothing.
+
+        Raises:
+          RuntimeError:
+            if called for non-closed queue.
+        """
+
         if not self._is_shutdown:
             msg = "Waiting for non-closed queue"
             raise RuntimeError(msg)
@@ -506,6 +537,14 @@ class Queue(MixedQueue[_T]):
         await async_checkpoint()
 
     async def aclose(self) -> None:
+        """
+        Shutdown the queue and wait for actual shutting down.
+
+        This method is provided for compatibility with the Janus queues. Use
+        :meth:`queue.shutdown(immediate=True) <BaseQueue.shutdown>` as a direct
+        substitute.
+        """
+
         self.close()
         await self.wait_closed()
 
@@ -566,10 +605,24 @@ class Queue(MixedQueue[_T]):
 
     @property
     def putting(self) -> int:
+        """
+        The current number of threads/tasks waiting to put.
+
+        It represents the length of the wait queue and thus changes
+        immediately.
+        """
+
         return self.not_full.waiting
 
     @property
     def getting(self) -> int:
+        """
+        The current number of threads/tasks waiting to get.
+
+        It represents the length of the wait queue and thus changes
+        immediately.
+        """
+
         return self.not_empty.waiting
 
     @property
@@ -602,7 +655,10 @@ class Queue(MixedQueue[_T]):
 
 
 class LifoQueue(Queue[_T]):
-    """A subclass of Queue; retrieves most recently added entries first."""
+    """
+    A variant of :class:`Queue` that retrieves most recently added entries
+    first (:abbr:`LIFO (last-in, first-out)`).
+    """
 
     __slots__ = ("__data",)  # noqa: PLW0244
 
@@ -631,9 +687,9 @@ class LifoQueue(Queue[_T]):
 
 
 class PriorityQueue(Queue[_RichComparableT]):
-    """A subclass of Queue; retrieves entries in priority order (lowest first).
-
-    Entries are typically tuples of the form: (priority number, data).
+    """
+    A variant of :class:`Queue` that retrieves entries in priority order
+    (lowest first).
     """
 
     __slots__ = ("__data",)  # noqa: PLW0244

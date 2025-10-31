@@ -3,6 +3,8 @@
 # SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: ISC
 
+"""Thread-safe async-aware queue for Python"""
+
 from ._exceptions import (
     AsyncQueueEmpty as AsyncQueueEmpty,
     AsyncQueueFull as AsyncQueueFull,
@@ -32,11 +34,12 @@ from ._queues import (
 )
 
 # modify __module__ for shorter repr()
-for __value in list(globals().values()):
-    if getattr(__value, "__module__", "").startswith(f"{__name__}."):
-        try:
-            __value.__module__ = __name__
-        except AttributeError:
-            pass
+if not __import__("typing").TYPE_CHECKING:
+    for __value in list(globals().values()):
+        if getattr(__value, "__module__", "").startswith(f"{__name__}."):
+            try:
+                __value.__module__ = __name__
+            except AttributeError:
+                pass
 
-    del __value
+        del __value
