@@ -25,6 +25,12 @@ class SyncQueueProxy(SyncQueue[_T]):
     def __init__(self, wrapped: MixedQueue[_T]) -> None:
         self.wrapped = wrapped
 
+    def __repr__(self) -> str:
+        cls = self.__class__
+        cls_repr = f"{cls.__module__}.{cls.__qualname__}"
+
+        return f"{cls_repr}({self.wrapped!r})"
+
     def peekable(self) -> bool:
         return self.wrapped.peekable()
 
@@ -105,6 +111,12 @@ class AsyncQueueProxy(AsyncQueue[_T]):
 
     def __init__(self, wrapped: MixedQueue[_T]) -> None:
         self.wrapped = wrapped
+
+    def __repr__(self) -> str:
+        cls = self.__class__
+        cls_repr = f"{cls.__module__}.{cls.__qualname__}"
+
+        return f"{cls_repr}({self.wrapped!r})"
 
     def peekable(self) -> bool:
         return self.wrapped.peekable()
