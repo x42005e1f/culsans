@@ -34,7 +34,7 @@ def _copydoc(
     return decorator
 
 
-def _update_metadata(namespace: dict[str, Any]) -> None:
+def _export(namespace: dict[str, Any]) -> None:
     if TYPE_CHECKING:
         # sphinx.ext.autodoc does not support hacks below. In particular,
         # 'bysource' ordering will not work, nor will some cross-references. So
@@ -68,4 +68,4 @@ def _update_metadata(namespace: dict[str, Any]) -> None:
                 # skip indirect/private modules
                 continue
 
-            _update_metadata(vars(value))
+            _export(vars(value))
