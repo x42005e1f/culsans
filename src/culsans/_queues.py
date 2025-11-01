@@ -6,10 +6,10 @@
 from __future__ import annotations
 
 import sys
-import time
 
 from collections import deque
 from heapq import heappop, heappush
+from math import inf, isnan
 from typing import Any, Protocol, TypeVar, Union
 
 from aiologic import Condition
@@ -36,6 +36,11 @@ except ImportError:  # aiologic<0.15.0
         LockType as ThreadLock,
         allocate_lock as create_thread_lock,
     )
+
+try:
+    from aiologic.lowlevel import green_clock
+except ImportError:  # aiologic<0.15.0
+    from time import monotonic as green_clock
 
 try:
     from aiologic.lowlevel import (
@@ -173,14 +178,25 @@ class Queue(MixedQueue[_T]):
                             self._check_closing()
 
                             rescheduled = True
-                    elif timeout < 0:
-                        msg = "'timeout' must be a non-negative number"
-                        raise ValueError(msg)
                     else:
-                        endtime = time.monotonic() + timeout
+                        if isinstance(timeout, int):
+                            try:
+                                timeout = float(timeout)
+                            except OverflowError:
+                                timeout = (-1 if timeout < 0 else 1) * inf
+
+                        if isnan(timeout):
+                            msg = "'timeout' must be a number (non-NaN)"
+                            raise ValueError(msg)
+
+                        if timeout < 0:
+                            msg = "'timeout' must be a non-negative number"
+                            raise ValueError(msg)
+
+                        endtime = green_clock() + timeout
 
                         while 0 < self._maxsize <= self._qsize():
-                            remaining = endtime - time.monotonic()
+                            remaining = endtime - green_clock()
 
                             if remaining <= 0:
                                 raise QueueFull
@@ -268,16 +284,27 @@ class Queue(MixedQueue[_T]):
                         self.not_empty.wait()
 
                         rescheduled = True
-                elif timeout < 0:
-                    msg = "'timeout' must be a non-negative number"
-                    raise ValueError(msg)
                 else:
-                    endtime = time.monotonic() + timeout
+                    if isinstance(timeout, int):
+                        try:
+                            timeout = float(timeout)
+                        except OverflowError:
+                            timeout = (-1 if timeout < 0 else 1) * inf
+
+                    if isnan(timeout):
+                        msg = "'timeout' must be a number (non-NaN)"
+                        raise ValueError(msg)
+
+                    if timeout < 0:
+                        msg = "'timeout' must be a non-negative number"
+                        raise ValueError(msg)
+
+                    endtime = green_clock() + timeout
 
                     while not self._qsize():
                         self._check_closing()
 
-                        remaining = endtime - time.monotonic()
+                        remaining = endtime - green_clock()
 
                         if remaining <= 0:
                             raise QueueEmpty
@@ -374,16 +401,27 @@ class Queue(MixedQueue[_T]):
                         notified = self.not_empty.wait()
 
                         rescheduled = True
-                elif timeout < 0:
-                    msg = "'timeout' must be a non-negative number"
-                    raise ValueError(msg)
                 else:
-                    endtime = time.monotonic() + timeout
+                    if isinstance(timeout, int):
+                        try:
+                            timeout = float(timeout)
+                        except OverflowError:
+                            timeout = (-1 if timeout < 0 else 1) * inf
+
+                    if isnan(timeout):
+                        msg = "'timeout' must be a number (non-NaN)"
+                        raise ValueError(msg)
+
+                    if timeout < 0:
+                        msg = "'timeout' must be a non-negative number"
+                        raise ValueError(msg)
+
+                    endtime = green_clock() + timeout
 
                     while not self._qsize():
                         self._check_closing()
 
-                        remaining = endtime - time.monotonic()
+                        remaining = endtime - green_clock()
 
                         if remaining <= 0:
                             raise QueueEmpty
