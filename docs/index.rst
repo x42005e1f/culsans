@@ -28,6 +28,7 @@ culsans
   :maxdepth: 1
   :hidden:
 
+  changelog
   license
 
 .. toctree::
