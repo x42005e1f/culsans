@@ -670,6 +670,22 @@ class Queue(MixedQueue[_T]):
         return self.not_empty.waiting
 
     @property
+    def waiting(self) -> int:
+        """
+        The current number of threads/tasks waiting to access.
+
+        It is roughly equivalent to the sum of the :attr:`putting` and
+        :attr:`getting` properties, but is more reliable than the sum in a
+        multithreaded environment.
+        """
+
+        with self.mutex:
+            # We use the underlying lock to ensure that no thread can increment
+            # the counters during normal queue operation (since exclusive
+            # access is required to enter the wait queue).
+            return self.not_full.waiting + self.not_empty.waiting
+
+    @property
     def unfinished_tasks(self) -> int:
         return self._unfinished_tasks
 

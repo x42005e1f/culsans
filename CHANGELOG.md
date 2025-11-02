@@ -21,6 +21,8 @@ Commit messages are consistent with
 
 ### Added
 
+- `culsans.Queue.waiting` as the third `aiologic`-like property. Useful when
+  you need to reliably obtain the total number of waiting ones.
 - Timeout handling has been improved in line with the latest changes in
   `aiologic` (support for very large numbers, additional checking for `NaN`,
   use of the clock functions from `aiologic.lowlevel`). This is particularly
