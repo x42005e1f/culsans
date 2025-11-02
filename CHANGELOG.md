@@ -46,6 +46,9 @@ Commit messages are consistent with
 
 - For the underlying lock, `aiologic.lowlevel._thread` was used, which has been
   declared deprecated in the latest version of `aiologic`.
+- With green checkpoints enabled, the end time was recalculated for the timeout
+  after rescheduling, which could lead to doubling the actual wait time
+  (`0.9.0` regression).
 
 [0.9.0] - 2025-07-16
 --------------------

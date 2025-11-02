@@ -162,6 +162,7 @@ class Queue(MixedQueue[_T]):
         timeout: float | None = None,
     ) -> None:
         rescheduled = False
+        endtime = None
 
         with self.mutex:
             while True:
@@ -193,7 +194,8 @@ class Queue(MixedQueue[_T]):
                             msg = "'timeout' must be a non-negative number"
                             raise ValueError(msg)
 
-                        endtime = green_clock() + timeout
+                        if endtime is None:
+                            endtime = green_clock() + timeout
 
                         while 0 < self._maxsize <= self._qsize():
                             remaining = endtime - green_clock()
@@ -269,6 +271,7 @@ class Queue(MixedQueue[_T]):
 
     def sync_get(self, block: bool = True, timeout: float | None = None) -> _T:
         rescheduled = False
+        endtime = None
 
         with self.mutex:
             while True:
@@ -299,7 +302,8 @@ class Queue(MixedQueue[_T]):
                         msg = "'timeout' must be a non-negative number"
                         raise ValueError(msg)
 
-                    endtime = green_clock() + timeout
+                    if endtime is None:
+                        endtime = green_clock() + timeout
 
                     while not self._qsize():
                         self._check_closing()
@@ -384,6 +388,7 @@ class Queue(MixedQueue[_T]):
     ) -> _T:
         rescheduled = False
         notified = False
+        endtime = None
 
         with self.mutex:
             self._check_peekable()
@@ -416,7 +421,8 @@ class Queue(MixedQueue[_T]):
                         msg = "'timeout' must be a non-negative number"
                         raise ValueError(msg)
 
-                    endtime = green_clock() + timeout
+                    if endtime is None:
+                        endtime = green_clock() + timeout
 
                     while not self._qsize():
                         self._check_closing()
