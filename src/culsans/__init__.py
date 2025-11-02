@@ -34,4 +34,4 @@ from ._queues import (
 )
 
 # update .__module__ attributes for shorter representation
-__import__(f"{__name__}._utils")._utils._export(globals())
+__import__(f"{__name__}._utils", fromlist=["_export"])._export(globals())

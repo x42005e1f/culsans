@@ -7,13 +7,7 @@ from __future__ import annotations
 
 import sys
 
-from types import FunctionType
 from typing import TYPE_CHECKING, Any, TypeVar
-
-if sys.version_info >= (3, 11):
-    from typing import get_overloads, overload
-else:
-    from typing_extensions import get_overloads, overload
 
 if sys.version_info >= (3, 9):
     from collections.abc import Callable
@@ -46,26 +40,4 @@ def _export(namespace: dict[str, Any]) -> None:
 
     for value in namespace.values():
         if getattr(value, "__module__", "").startswith(f"{module_name}."):
-            if isinstance(value, FunctionType):
-                # We have to re-register overloads before updating the
-                # function's __module__, as it is used by get_overloads() as
-                # one of the registry keys.
-                for value_overload in get_overloads(value):
-                    value_overload.__module__ = module_name
-
-                    # re-register value_overload for module_name
-                    overload(value_overload)
-
-            try:
-                value.__module__ = module_name
-            except AttributeError:  # a singleton object, etc.
-                pass
-
-        if getattr(value, "__name__", "").startswith(f"{module_name}."):
-            package_name, _, submodule_name = value.__name__.rpartition(".")
-
-            if package_name != module_name or submodule_name.startswith("_"):
-                # skip indirect/private modules
-                continue
-
-            _export(vars(value))
+            value.__module__ = module_name
