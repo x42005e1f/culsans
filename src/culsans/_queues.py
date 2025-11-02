@@ -661,7 +661,7 @@ class Queue(MixedQueue[_T]):
     @property
     def getting(self) -> int:
         """
-        The current number of threads/tasks waiting to get.
+        The current number of threads/tasks waiting to get/peek.
 
         It represents the length of the wait queue and thus changes
         immediately.
