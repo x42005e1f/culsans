@@ -290,10 +290,10 @@ See the aiologic documentation for details on how to control checkpoints.
 Compatibility
 =============
 
-The interfaces are compliant with the Python API version 3.13, and the culsans
-library itself is fully compatible with the janus library version 2.0.0. If you
-are using janus in your application and want to switch to culsans, all you have
-to do is replace this:
+The interfaces are compliant with the Python API, and the culsans library
+itself is fully compatible with the janus library. If you are using janus in
+your application and want to switch to culsans, all you have to do is replace
+this:
 
 .. code:: python
 
