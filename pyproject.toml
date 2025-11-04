@@ -81,7 +81,6 @@ skip = [
 exclude = [".*"]
 
 [tool.hatch.version]
-fallback-version = "0.9.1.dev0"
 source = "vcs"
 
 [tool.ruff]
