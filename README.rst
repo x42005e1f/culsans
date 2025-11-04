@@ -291,9 +291,26 @@ Compatibility
 =============
 
 The interfaces are compliant with the Python API, and the culsans library
-itself is fully compatible with the janus library. If you are using janus in
-your application and want to switch to culsans, all you have to do is replace
-this:
+itself is fully compatible with the janus library.
+
+If you want to use culsans as a backport of the standard queues to older
+versions of Python (for example, if you need the ``shutdown()`` method), you
+can replace something like this:
+
+.. code:: python
+
+    sync_q = queue.Queue()
+    async_q = asyncio.Queue()
+
+with this:
+
+.. code:: python
+
+    sync_q = culsans.Queue().sync_q
+    async_q = culsans.Queue().async_q
+
+And if you are using janus in your application and want to switch to culsans,
+all you have to do is replace this:
 
 .. code:: python
 
