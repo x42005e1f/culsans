@@ -290,9 +290,6 @@ See the aiologic documentation for details on how to control checkpoints.
 Compatibility
 =============
 
-The interfaces are compliant with the Python API, and the culsans library
-itself is fully compatible with the janus library.
-
 If you want to use culsans as a backport of the standard queues to older
 versions of Python (for example, if you need the ``shutdown()`` method), you
 can replace something like this:
