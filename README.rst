@@ -70,6 +70,8 @@ astral-sh/uv>`_.
 Usage
 =====
 
+.. usage-start-marker
+
 Three queues are available:
 
 * ``Queue``
@@ -287,8 +289,12 @@ specifics.
 
 See the aiologic documentation for details on how to control checkpoints.
 
+.. usage-end-marker
+
 Compatibility
 =============
+
+.. compatibility-start-marker
 
 If you want to use culsans as a backport of the standard queues to older
 versions of Python (for example, if you need the ``shutdown()`` method), you
@@ -320,6 +326,8 @@ with this:
     import culsans as janus
 
 and everything will work!
+
+.. compatibility-end-marker
 
 Documentation
 =============

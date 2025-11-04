@@ -10,6 +10,20 @@ culsans
   :start-after: .. description-start-marker
   :end-before: .. description-end-marker
 
+Usage
+=====
+
+.. include:: ../README.rst
+  :start-after: .. usage-start-marker
+  :end-before: .. usage-end-marker
+
+Compatibility
+=============
+
+.. include:: ../README.rst
+  :start-after: .. compatibility-start-marker
+  :end-before: .. compatibility-end-marker
+
 .. toctree::
   :maxdepth: 2
   :hidden:
