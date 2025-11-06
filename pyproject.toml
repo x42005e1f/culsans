@@ -62,7 +62,7 @@ keywords = [
     "trio",
 ]
 dependencies = [
-    "aiologic>=0.13.0",
+    "aiologic>=0.15.0",
     "typing-extensions>=4.5.0; python_version<'3.12'",
 ]
 

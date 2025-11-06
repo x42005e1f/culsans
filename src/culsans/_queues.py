@@ -13,7 +13,15 @@ from math import inf, isnan
 from typing import Any, Protocol, TypeVar, Union
 
 from aiologic import Condition
-from aiologic.lowlevel import async_checkpoint, green_checkpoint
+from aiologic.lowlevel import (
+    ThreadLock,
+    async_checkpoint,
+    async_checkpoint_enabled,
+    create_thread_lock,
+    green_checkpoint,
+    green_checkpoint_enabled,
+    green_clock,
+)
 
 from ._exceptions import (
     QueueEmpty,
@@ -28,33 +36,6 @@ if sys.version_info >= (3, 12):
     from typing import override
 else:
     from typing_extensions import override
-
-try:
-    from aiologic.lowlevel import ThreadLock, create_thread_lock
-except ImportError:  # aiologic<0.15.0
-    from aiologic.lowlevel._thread import (  # type: ignore[assignment]
-        LockType as ThreadLock,
-        allocate_lock as create_thread_lock,
-    )
-
-try:
-    from aiologic.lowlevel import green_clock
-except ImportError:  # aiologic<0.15.0
-    from time import monotonic as green_clock
-
-try:
-    from aiologic.lowlevel import (
-        async_checkpoint_enabled,
-        green_checkpoint_enabled,
-    )
-except ImportError:  # aiologic<0.15.0
-
-    def async_checkpoint_enabled() -> bool:
-        return True
-
-    def green_checkpoint_enabled() -> bool:
-        return True
-
 
 _T = TypeVar("_T")
 _T_contra = TypeVar("_T_contra", contravariant=True)
