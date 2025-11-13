@@ -346,6 +346,12 @@ GitHub Issues: https://github.com/x42005e1f/culsans/issues (bug tracker)
 
 You can also send an email to 0x42005e1f@gmail.com with any feedback.
 
+Dependents
+==========
+
+See `x42005e1f/culsans#6 <https://github.com/x42005e1f/culsans/discussions/
+6>`__.
+
 Support
 =======
 
