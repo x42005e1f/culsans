@@ -103,7 +103,7 @@ class Queue(MixedQueue[_T]):
         """
         Create a queue object with the given maximum size.
 
-        if *maxsize* is <= 0, the queue size if infinite. If it is an integer
+        if *maxsize* is <= 0, the queue size is infinite. If it is an integer
         greater that 0, then the put methods block when the queue reaches
         *maxsize* until an item is removed by the get methods.
         """
