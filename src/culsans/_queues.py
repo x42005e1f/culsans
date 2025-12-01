@@ -209,6 +209,9 @@ class Queue(MixedQueue[_T]):
 
             self.not_empty.notify()
 
+            if 0 >= self._maxsize or self._maxsize > self._qsize():
+                self.not_full.notify()
+
     async def async_put(self, item: _T) -> None:
         rescheduled = False
 
@@ -242,6 +245,9 @@ class Queue(MixedQueue[_T]):
 
             self.not_empty.notify()
 
+            if 0 >= self._maxsize or self._maxsize > self._qsize():
+                self.not_full.notify()
+
     def put_nowait(self, item: _T) -> None:
         with self.mutex:
             isize = self._isize(item)
@@ -255,6 +261,9 @@ class Queue(MixedQueue[_T]):
             self._unfinished_tasks += isize if self._chain() else 1
 
             self.not_empty.notify()
+
+            if 0 >= self._maxsize or self._maxsize > self._qsize():
+                self.not_full.notify()
 
     def sync_get(self, block: bool = True, timeout: float | None = None) -> _T:
         rescheduled = False
