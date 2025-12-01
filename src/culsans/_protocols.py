@@ -110,7 +110,7 @@ class BaseQueue(Protocol[_T]):
         """
         ...
 
-    def task_done(self) -> None:
+    def task_done(self, count: int = 1) -> None:
         """
         Indicate that a formerly enqueued task is complete.
 
@@ -121,6 +121,10 @@ class BaseQueue(Protocol[_T]):
         If a join call is currently blocking, it will resume when all items
         have been processed (meaning that a :meth:`task_done` call was received
         for every item that had been put into the queue).
+
+        Args:
+          count:
+            Number of completed tasks (useful for flattened queues).
 
         Raises:
           ValueError:
