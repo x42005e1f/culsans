@@ -10,7 +10,7 @@ resolution-markers = [
 
 [[package]]
 name = "aiologic"
-version = "0.15.0"
+version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "sniffio" },
@@ -18,9 +18,9 @@ dependencies = [
     { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9' and python_full_version < '3.13'" },
     { name = "wrapt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/85/ae/93a6dcdcffc15c890fc3d899e62f3a16eefb507553c6e531f26cbe5799da/aiologic-0.15.0.tar.gz", hash = "sha256:2aa851d2298588f9bfa543a425773e8c3e07069f96c09ccc7106c0dd899fe5fd", size = 210766, upload-time = "2025-11-05T11:28:39.744Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a8/13/50b91a3ea6b030d280d2654be97c48b6ed81753a50286ee43c646ba36d3c/aiologic-0.16.0.tar.gz", hash = "sha256:c267ccbd3ff417ec93e78d28d4d577ccca115d5797cdbd16785a551d9658858f", size = 225952, upload-time = "2025-11-27T23:48:41.195Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/bd/1666bf801f84e6f18872653a5884a7d15d7dbcae307899f5603b11d1438b/aiologic-0.15.0-py3-none-any.whl", hash = "sha256:35f9f906bd80424b39c475b3b7f8dd853ee279a176b73b9bc290a41feb1b0db7", size = 124401, upload-time = "2025-11-05T11:28:38.259Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/27/206615942005471499f6fbc36621582e24d0686f33c74b2d018fcfd4fe67/aiologic-0.16.0-py3-none-any.whl", hash = "sha256:e00ce5f68c5607c864d26aec99c0a33a83bdf8237aa7312ffbb96805af67d8b6", size = 135193, upload-time = "2025-11-27T23:48:40.099Z" },
 ]
 
 [[package]]
@@ -216,7 +216,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiologic" },
     { name = "typing-extensions", version = "4.13.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9' and python_full_version < '3.12'" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9' and python_full_version < '3.13'" },
 ]
 
 [package.dev-dependencies]
@@ -238,8 +238,8 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiologic", specifier = ">=0.15.0" },
-    { name = "typing-extensions", marker = "python_full_version < '3.12'", specifier = ">=4.5.0" },
+    { name = "aiologic", specifier = ">=0.16.0,<0.18.0" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'", specifier = ">=4.10.0" },
 ]
 
 [package.metadata.requires-dev]

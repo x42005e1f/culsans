@@ -5,9 +5,16 @@
 
 from __future__ import annotations
 
-from typing import Protocol, TypeVar
+import sys
+
+from typing import TypeVar
 
 from ._utils import _copydoc as copydoc
+
+if sys.version_info >= (3, 13):  # various fixes and improvements
+    from typing import Protocol
+else:  # typing-extensions>=4.10.0
+    from typing_extensions import Protocol
 
 _T = TypeVar("_T")
 

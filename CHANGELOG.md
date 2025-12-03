@@ -21,12 +21,24 @@ Commit messages are consistent with
 
 ### Added
 
+- `culsans.__version__` and `culsans.__version_tuple__` as a way to retrieve
+  the package version at runtime.
 - `count` parameter to the `task_done()` methods to identify that the specified
   number of tasks has been completed. Useful for subclasses that implement
   flattened queues.
 - `_isize()` and `_chain()` overridable methods, which allow to create
   subclasses that implement sequence/flattened queues. Solves
   [#9](https://github.com/x42005e1f/culsans/issues/9).
+
+### Changed
+
+- The package now relies on `aiologic.meta.export()` for exports instead of
+  using its own implementation (similar to `aiologic==0.15.0`), which provides
+  safer behavior. In particular, queue methods now also update their metadata,
+  allowing them to be safely referenced during pickling.
+- The protocols are now inherited from `typing_extensions.Protocol` on Python
+  below 3.13, which backports all related fixes and improvements to older
+  versions of Python.
 
 [0.10.0] - 2025-11-04
 ---------------------

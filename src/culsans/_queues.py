@@ -32,9 +32,9 @@ from ._exceptions import (
 from ._protocols import MixedQueue
 from ._proxies import AsyncQueueProxy, SyncQueueProxy
 
-if sys.version_info >= (3, 12):
+if sys.version_info >= (3, 12):  # PEP 698
     from typing import override
-else:
+else:  # typing-extensions>=4.5.0
     from typing_extensions import override
 
 _T = TypeVar("_T")

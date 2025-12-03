@@ -3,7 +3,21 @@
 # SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: ISC
 
-"""Thread-safe async-aware queue for Python"""
+"""
+Thread-safe async-aware queue for Python
+
+Mixed sync-async queue, supposed to be used for communicating between classic
+synchronous (threaded) code and asynchronous one, between two asynchronous
+codes in different threads, and for any other combination that you want.
+
+If you want to know more, visit https://culsans.readthedocs.io.
+"""
+
+from __future__ import annotations
+
+__author__: str = "Ilya Egorov <0x42005e1f@gmail.com>"
+__version__: str  # dynamic
+__version_tuple__: tuple[int | str, ...]  # dynamic
 
 from ._exceptions import (
     AsyncQueueEmpty as AsyncQueueEmpty,
@@ -33,5 +47,11 @@ from ._queues import (
     Queue as Queue,
 )
 
-# update .__module__ attributes for shorter representation
-__import__(f"{__name__}._utils", fromlist=["_export"])._export(globals())
+# prepare for external use
+from aiologic import meta  # isort: skip
+
+meta.export(globals())
+meta.export_dynamic(globals(), "__version__", "._version.version")
+meta.export_dynamic(globals(), "__version_tuple__", "._version.version_tuple")
+
+del meta
