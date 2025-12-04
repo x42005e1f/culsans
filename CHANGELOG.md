@@ -29,6 +29,10 @@ Commit messages are consistent with
 - `_isize()` and `_chain()` overridable methods, which allow to create
   subclasses that implement sequence/flattened queues. Solves
   [#9](https://github.com/x42005e1f/culsans/issues/9).
+- The proxies can now be weakly referenced. Previously, this was disallowed due
+  to their limited lifetime (since the corresponding properties return new
+  objects on each access). This is now allowed for cases where a proxy is used
+  as a backport to older versions of Python.
 
 ### Changed
 

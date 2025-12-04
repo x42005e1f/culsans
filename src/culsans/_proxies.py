@@ -18,7 +18,10 @@ class SyncQueueProxy(SyncQueue[_T]):
     queue.
     """
 
-    __slots__ = ("wrapped",)
+    __slots__ = (
+        "__weakref__",
+        "wrapped",
+    )
 
     wrapped: MixedQueue[_T]
 
@@ -105,7 +108,10 @@ class AsyncQueueProxy(AsyncQueue[_T]):
     mixed queue.
     """
 
-    __slots__ = ("wrapped",)
+    __slots__ = (
+        "__weakref__",
+        "wrapped",
+    )
 
     wrapped: MixedQueue[_T]
 
