@@ -9,7 +9,7 @@ import sys
 
 from typing import TypeVar
 
-from ._utils import _copydoc as copydoc
+from ._utils import copydoc
 
 if sys.version_info >= (3, 13):  # various fixes and improvements
     from typing import Protocol

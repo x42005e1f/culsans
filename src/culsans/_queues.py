@@ -10,11 +10,10 @@ import sys
 from collections import deque
 from heapq import heappop, heappush
 from math import inf, isnan
-from typing import Any, Protocol, TypeVar, Union
+from typing import TYPE_CHECKING, Protocol, TypeVar, Union
 
 from aiologic import Condition
 from aiologic.lowlevel import (
-    ThreadLock,
     async_checkpoint,
     async_checkpoint_enabled,
     create_thread_lock,
@@ -32,36 +31,33 @@ from ._exceptions import (
 from ._protocols import MixedQueue
 from ._proxies import AsyncQueueProxy, SyncQueueProxy
 
+if TYPE_CHECKING:
+    from typing import Any
+
+    from aiologic.lowlevel import ThreadLock
+
 if sys.version_info >= (3, 12):  # PEP 698
     from typing import override
 else:  # typing-extensions>=4.5.0
     from typing_extensions import override
 
-_T = TypeVar("_T")
-_T_contra = TypeVar("_T_contra", contravariant=True)
-
 
 class _SupportsBool(Protocol):
-    __slots__ = ()
-
     def __bool__(self, /) -> bool: ...
 
 
-class _SupportsLT(Protocol[_T_contra]):
-    __slots__ = ()
-
-    def __lt__(self, other: _T_contra, /) -> _SupportsBool: ...
+class _SupportsLT(Protocol):
+    def __lt__(self, other: Any, /) -> _SupportsBool: ...
 
 
-class _SupportsGT(Protocol[_T_contra]):
-    __slots__ = ()
-
-    def __gt__(self, other: _T_contra, /) -> _SupportsBool: ...
+class _SupportsGT(Protocol):
+    def __gt__(self, other: Any, /) -> _SupportsBool: ...
 
 
+_T = TypeVar("_T")
 _RichComparableT = TypeVar(
     "_RichComparableT",
-    bound=Union[_SupportsLT[Any], _SupportsGT[Any]],
+    bound=Union[_SupportsLT, _SupportsGT],
 )
 
 

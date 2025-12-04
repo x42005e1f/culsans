@@ -20,12 +20,10 @@ if TYPE_CHECKING:
     _CallableT = TypeVar("_CallableT", bound=Callable[..., Any])
 
 
-def _copydoc(
-    wrapped: Callable[..., Any],
-) -> Callable[[_CallableT], _CallableT]:
-    def decorator(func: _CallableT) -> _CallableT:
-        func.__doc__ = wrapped.__doc__
+def copydoc(wrapped: Callable[..., Any]) -> Callable[[_CallableT], _CallableT]:
+    def decorator(function: _CallableT) -> _CallableT:
+        function.__doc__ = wrapped.__doc__
 
-        return func
+        return function
 
     return decorator

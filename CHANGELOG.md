@@ -39,6 +39,8 @@ Commit messages are consistent with
 - The protocols are now inherited from `typing_extensions.Protocol` on Python
   below 3.13, which backports all related fixes and improvements to older
   versions of Python.
+- The shutdown exceptions are now defined again via backports (on Python below
+  3.13), but in a type-friendly manner.
 
 [0.10.0] - 2025-11-04
 ---------------------
