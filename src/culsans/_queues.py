@@ -16,7 +16,7 @@ from aiologic import Condition
 from aiologic.lowlevel import (
     async_checkpoint,
     async_checkpoint_enabled,
-    create_thread_lock,
+    create_thread_rlock,
     green_checkpoint,
     green_checkpoint_enabled,
     green_clock,
@@ -34,7 +34,7 @@ from ._proxies import AsyncQueueProxy, SyncQueueProxy
 if TYPE_CHECKING:
     from typing import Any
 
-    from aiologic.lowlevel import ThreadLock
+    from aiologic.lowlevel import ThreadRLock
 
 if sys.version_info >= (3, 12):  # PEP 698
     from typing import override
@@ -89,11 +89,11 @@ class Queue(MixedQueue[_T]):
     _unfinished_tasks: int
     _is_shutdown: bool
 
-    mutex: ThreadLock
+    mutex: ThreadRLock
 
-    not_full: Condition[ThreadLock]
-    not_empty: Condition[ThreadLock]
-    all_tasks_done: Condition[ThreadLock]
+    not_full: Condition[ThreadRLock]
+    not_empty: Condition[ThreadRLock]
+    all_tasks_done: Condition[ThreadRLock]
 
     def __init__(self, maxsize: int = 0) -> None:
         """
@@ -108,7 +108,7 @@ class Queue(MixedQueue[_T]):
         self._unfinished_tasks = 0
         self._is_shutdown = False
 
-        self.mutex = mutex = create_thread_lock()
+        self.mutex = mutex = create_thread_rlock()
 
         self.not_full = Condition(mutex)  # putters
         self.not_empty = Condition(mutex)  # getters
@@ -141,7 +141,7 @@ class Queue(MixedQueue[_T]):
         rescheduled = False
         endtime = None
 
-        with self.mutex:
+        with self.not_full:
             isize = self._isize(item)
 
             while True:
@@ -211,7 +211,7 @@ class Queue(MixedQueue[_T]):
     async def async_put(self, item: _T) -> None:
         rescheduled = False
 
-        with self.mutex:
+        with self.not_full:
             isize = self._isize(item)
 
             while True:
@@ -265,7 +265,7 @@ class Queue(MixedQueue[_T]):
         rescheduled = False
         endtime = None
 
-        with self.mutex:
+        with self.not_empty:
             while True:
                 if not block:
                     if not self._qsize():
@@ -331,7 +331,7 @@ class Queue(MixedQueue[_T]):
     async def async_get(self) -> _T:
         rescheduled = False
 
-        with self.mutex:
+        with self.not_empty:
             while True:
                 while not self._qsize():
                     self._check_closing()
@@ -382,7 +382,7 @@ class Queue(MixedQueue[_T]):
         notified = False
         endtime = None
 
-        with self.mutex:
+        with self.not_empty:
             self._check_peekable()
 
             while True:
@@ -452,7 +452,7 @@ class Queue(MixedQueue[_T]):
         rescheduled = False
         notified = False
 
-        with self.mutex:
+        with self.not_empty:
             self._check_peekable()
 
             while True:
@@ -499,7 +499,7 @@ class Queue(MixedQueue[_T]):
     def sync_join(self) -> None:
         rescheduled = False
 
-        with self.mutex:
+        with self.all_tasks_done:
             while self._unfinished_tasks:
                 self.all_tasks_done.wait()
 
@@ -511,7 +511,7 @@ class Queue(MixedQueue[_T]):
     async def async_join(self) -> None:
         rescheduled = False
 
-        with self.mutex:
+        with self.all_tasks_done:
             while self._unfinished_tasks:
                 await self.all_tasks_done
 

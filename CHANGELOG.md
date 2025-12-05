@@ -36,6 +36,18 @@ Commit messages are consistent with
 
 ### Changed
 
+- The underlying lock is now reentrant. This differs from the standard queue
+  approach, but makes it much easier to create subclasses and also makes
+  `culsans.Queue` somewhat compatible with `sqlalchemy.util.queue.Queue`.
+  However, the main reason is not this, but to make the following change
+  efficiently implemented.
+- The queues now rely on new `aiologic` safety guarantees when using the
+  condition variables. Previously, as with `threading.Condition`, a
+  `KeyboardInterrupt` raised during synchronization on the underlying lock
+  after notification led to the lock being over-released and, as a result, to a
+  `RuntimeError`. Now, `aiologic.Condition` is used as a context manager,
+  thereby including additional checks on the `aiologic` side to ensure that the
+  current thread owns the lock when releasing it.
 - The package now relies on `aiologic.meta.export()` for exports instead of
   using its own implementation (similar to `aiologic==0.15.0`), which provides
   safer behavior. In particular, queue methods now also update their metadata,
