@@ -26,13 +26,15 @@ Commit messages are consistent with
 - `count` parameter to the `task_done()` methods to identify that the specified
   number of tasks has been completed. Useful for subclasses that implement
   flattened queues.
-- `_isize()` and `_chain()` overridable methods, which allow to create
-  subclasses that implement sequence/flattened queues. Solves
+- `_isize()` overridable method, which allows to create subclasses that
+  implement sequence/flattened queues. Solves
   [#9](https://github.com/x42005e1f/culsans/issues/9).
 - The proxies can now be weakly referenced. Previously, this was disallowed due
   to their limited lifetime (since the corresponding properties return new
   objects on each access). This is now allowed for cases where a proxy is used
   as a backport to older versions of Python.
+- A negative queue length is now a valid value and is handled correctly
+  (extends subclassing capabilities).
 
 ### Changed
 
@@ -48,6 +50,16 @@ Commit messages are consistent with
   `RuntimeError`. Now, `aiologic.Condition` is used as a context manager,
   thereby including additional checks on the `aiologic` side to ensure that the
   current thread owns the lock when releasing it.
+- The `unfinished_tasks` property's value now changes according to the queue
+  size change (the value returned by the `_qsize()` method). This allows to
+  create flattened queues without introducing related additional methods and
+  also corrects the behavior for subclasses that may not change the queue size
+  as a result of insertion.
+- The `timeout` parameter's value is now checked and converted at the beginning
+  of the method call, regardless of the `block` parameter's value. This should
+  prevent cases where an incorrect value is passed.
+- The peekability check is now ensured before each call (after each context
+  switch), allowing the peek methods to be enabled/disabled dynamically.
 - The package now relies on `aiologic.meta.export()` for exports instead of
   using its own implementation (similar to `aiologic==0.15.0`), which provides
   safer behavior. In particular, queue methods now also update their metadata,
@@ -57,6 +69,14 @@ Commit messages are consistent with
   versions of Python.
 - The shutdown exceptions are now defined again via backports (on Python below
   3.13), but in a type-friendly manner.
+
+### Fixed
+
+- The sync methods called the checkpoint function regardless of the `block`
+  parameter's value. Now they do not make the call in the non-blocking case.
+- Notifications could be insufficient or excessive when the queue size changed
+  differently than in the standard behavior. Now such situations are detected
+  and a different notification mechanism is activated when they are detected.
 
 [0.10.0] - 2025-11-04
 ---------------------

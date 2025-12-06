@@ -9,7 +9,7 @@ import sys
 
 from collections import deque
 from heapq import heappop, heappush
-from math import inf, isnan
+from math import inf, isinf, isnan
 from typing import TYPE_CHECKING, Protocol, TypeVar, Union
 
 from aiologic import Condition
@@ -73,6 +73,8 @@ class Queue(MixedQueue[_T]):
 
     __slots__ = (
         "__data",
+        "__one_get_one_item",
+        "__one_put_one_item",
         "__weakref__",
         "_is_shutdown",
         "_maxsize",
@@ -84,6 +86,9 @@ class Queue(MixedQueue[_T]):
     )
 
     __data: deque[_T]
+
+    __one_put_one_item: bool
+    __one_get_one_item: bool
 
     _maxsize: int
     _unfinished_tasks: int
@@ -114,6 +119,9 @@ class Queue(MixedQueue[_T]):
         self.not_empty = Condition(mutex)  # getters
         self.all_tasks_done = Condition(mutex)  # joiners
 
+        self.__one_put_one_item = True
+        self.__one_get_one_item = True
+
         self._init(maxsize)  # data
 
     def peekable(self) -> bool:
@@ -126,7 +134,7 @@ class Queue(MixedQueue[_T]):
 
     def empty(self) -> bool:
         with self.mutex:
-            return not self._qsize()
+            return self._qsize() <= 0
 
     def full(self) -> bool:
         with self.mutex:
@@ -139,239 +147,389 @@ class Queue(MixedQueue[_T]):
         timeout: float | None = None,
     ) -> None:
         rescheduled = False
-        endtime = None
+        notified = False
+        deadline = None
+
+        if timeout is not None:
+            if isinstance(timeout, int):
+                try:
+                    timeout = float(timeout)
+                except OverflowError:
+                    timeout = (-1 if timeout < 0 else +1) * inf
+
+            if isnan(timeout):
+                msg = "'timeout' must be a number (non-NaN)"
+                raise ValueError(msg)
+
+            if timeout < 0:
+                msg = "'timeout' must be a non-negative number"
+                raise ValueError(msg)
+
+            if isinf(timeout):
+                timeout = None
+
+        if not block:
+            timeout = 0
 
         with self.not_full:
-            isize = self._isize(item)
+            try:
+                while True:
+                    self._check_closing()
 
-            while True:
-                self._check_closing()
+                    qsize = self._qsize()
+                    isize = self._isize(item)
+                    assert isize >= 0
 
-                if 0 < self._maxsize:
-                    if not block:
-                        if 0 < self._maxsize <= self._qsize() + isize - 1:
-                            raise QueueFull
-                    elif timeout is None:
-                        while 0 < self._maxsize <= self._qsize() + isize - 1:
-                            self.not_full.wait()
+                    if isize != 1:
+                        self.__one_put_one_item = False
+
+                    if timeout:
+                        while 0 < self._maxsize <= qsize + isize - 1:
+                            if deadline is None:
+                                deadline = green_clock() + timeout
+                            else:
+                                timeout = deadline - green_clock()
+
+                                if timeout <= 0:
+                                    raise QueueFull
+
+                            notified = self.not_full.wait(timeout)
 
                             self._check_closing()
+                            qsize = self._qsize()
+
+                            rescheduled = True
+                    elif timeout is None:
+                        while 0 < self._maxsize <= qsize + isize - 1:
+                            notified = self.not_full.wait()
+
+                            self._check_closing()
+                            qsize = self._qsize()
 
                             rescheduled = True
                     else:
-                        if isinstance(timeout, int):
-                            try:
-                                timeout = float(timeout)
-                            except OverflowError:
-                                timeout = (-1 if timeout < 0 else 1) * inf
+                        if 0 < self._maxsize <= qsize + isize - 1:
+                            raise QueueFull
 
-                        if isnan(timeout):
-                            msg = "'timeout' must be a number (non-NaN)"
-                            raise ValueError(msg)
+                        if not block:
+                            break
 
-                        if timeout < 0:
-                            msg = "'timeout' must be a non-negative number"
-                            raise ValueError(msg)
+                    if not rescheduled and green_checkpoint_enabled():
+                        state = self.mutex._release_save()
 
-                        if endtime is None:
-                            endtime = green_clock() + timeout
+                        try:
+                            green_checkpoint()
+                        finally:
+                            self.mutex._acquire_restore(state)
 
-                        while 0 < self._maxsize <= self._qsize() + isize - 1:
-                            remaining = endtime - green_clock()
+                        rescheduled = True
+                    else:
+                        break
 
-                            if remaining <= 0:
-                                raise QueueFull
+                self._put(item)
 
-                            self.not_full.wait(remaining)
+                new_qsize = self._qsize()
+                new_tasks = new_qsize - qsize
+                assert new_tasks >= 0
 
-                            self._check_closing()
+                if new_tasks != 1:
+                    self.__one_put_one_item = False
 
-                            rescheduled = True
+                if new_tasks:
+                    if 0 < new_qsize:
+                        if self.__one_get_one_item:
+                            if qsize < 0:
+                                self.not_empty.notify(new_qsize)
+                            else:
+                                self.not_empty.notify(new_tasks)
+                        else:
+                            self.not_empty.notify()
 
-                if not rescheduled and green_checkpoint_enabled():
-                    self.mutex.release()
-
-                    try:
-                        green_checkpoint()
-                    finally:
-                        self.mutex.acquire()
-
-                    rescheduled = True
-                else:
-                    break
-
-            self._put(item)
-            self._unfinished_tasks += isize if self._chain() else 1
-
-            self.not_empty.notify()
-
-            if 0 >= self._maxsize or self._maxsize > self._qsize():
-                self.not_full.notify()
+                self._unfinished_tasks += new_tasks
+            finally:
+                if notified and not self.__one_put_one_item:
+                    self.not_full.notify()
 
     async def async_put(self, item: _T) -> None:
         rescheduled = False
+        notified = False
 
         with self.not_full:
-            isize = self._isize(item)
-
-            while True:
-                self._check_closing()
-
-                while 0 < self._maxsize <= self._qsize() + isize - 1:
-                    await self.not_full
-
+            try:
+                while True:
                     self._check_closing()
 
-                    rescheduled = True
+                    qsize = self._qsize()
+                    isize = self._isize(item)
+                    assert isize >= 0
 
-                if not rescheduled and async_checkpoint_enabled():
-                    self.mutex.release()
+                    if isize != 1:
+                        self.__one_put_one_item = False
 
-                    try:
-                        await async_checkpoint()
-                    finally:
-                        self.mutex.acquire()
+                    while 0 < self._maxsize <= qsize + isize - 1:
+                        notified = await self.not_full
 
-                    rescheduled = True
-                else:
-                    break
+                        self._check_closing()
+                        qsize = self._qsize()
 
-            self._put(item)
-            self._unfinished_tasks += isize if self._chain() else 1
+                        rescheduled = True
 
-            self.not_empty.notify()
+                    if not rescheduled and async_checkpoint_enabled():
+                        state = self.mutex._release_save()
 
-            if 0 >= self._maxsize or self._maxsize > self._qsize():
-                self.not_full.notify()
+                        try:
+                            await async_checkpoint()
+                        finally:
+                            self.mutex._acquire_restore(state)
+
+                        rescheduled = True
+                    else:
+                        break
+
+                self._put(item)
+
+                new_qsize = self._qsize()
+                new_tasks = new_qsize - qsize
+                assert new_tasks >= 0
+
+                if new_tasks != 1:
+                    self.__one_put_one_item = False
+
+                if new_tasks:
+                    if 0 < new_qsize:
+                        if self.__one_get_one_item:
+                            if qsize < 0:
+                                self.not_empty.notify(new_qsize)
+                            else:
+                                self.not_empty.notify(new_tasks)
+                        else:
+                            self.not_empty.notify()
+
+                self._unfinished_tasks += new_tasks
+            finally:
+                if notified and not self.__one_put_one_item:
+                    self.not_full.notify()
 
     def put_nowait(self, item: _T) -> None:
         with self.mutex:
-            isize = self._isize(item)
-
             self._check_closing()
 
-            if 0 < self._maxsize <= self._qsize() + isize - 1:
+            qsize = self._qsize()
+            isize = self._isize(item)
+            assert isize >= 0
+
+            if isize != 1:
+                self.__one_put_one_item = False
+
+            if 0 < self._maxsize <= qsize + isize - 1:
                 raise QueueFull
 
             self._put(item)
-            self._unfinished_tasks += isize if self._chain() else 1
 
-            self.not_empty.notify()
+            new_qsize = self._qsize()
+            new_tasks = new_qsize - qsize
+            assert new_tasks >= 0
 
-            if 0 >= self._maxsize or self._maxsize > self._qsize():
-                self.not_full.notify()
+            if new_tasks != 1:
+                self.__one_put_one_item = False
+
+            if new_tasks:
+                if 0 < new_qsize:
+                    if self.__one_get_one_item:
+                        if qsize < 0:
+                            self.not_empty.notify(new_qsize)
+                        else:
+                            self.not_empty.notify(new_tasks)
+                    else:
+                        self.not_empty.notify()
+
+            self._unfinished_tasks += new_tasks
 
     def sync_get(self, block: bool = True, timeout: float | None = None) -> _T:
         rescheduled = False
-        endtime = None
+        notified = False
+        deadline = None
+
+        if timeout is not None:
+            if isinstance(timeout, int):
+                try:
+                    timeout = float(timeout)
+                except OverflowError:
+                    timeout = (-1 if timeout < 0 else +1) * inf
+
+            if isnan(timeout):
+                msg = "'timeout' must be a number (non-NaN)"
+                raise ValueError(msg)
+
+            if timeout < 0:
+                msg = "'timeout' must be a non-negative number"
+                raise ValueError(msg)
+
+            if isinf(timeout):
+                timeout = None
+
+        if not block:
+            timeout = 0
 
         with self.not_empty:
-            while True:
-                if not block:
-                    if not self._qsize():
-                        self._check_closing()
+            try:
+                while True:
+                    qsize = self._qsize()
 
-                        raise QueueEmpty
-                elif timeout is None:
-                    while not self._qsize():
-                        self._check_closing()
+                    if timeout:
+                        while qsize <= 0:
+                            self._check_closing()
 
-                        self.not_empty.wait()
+                            if deadline is None:
+                                deadline = green_clock() + timeout
+                            else:
+                                timeout = deadline - green_clock()
 
-                        rescheduled = True
-                else:
-                    if isinstance(timeout, int):
-                        try:
-                            timeout = float(timeout)
-                        except OverflowError:
-                            timeout = (-1 if timeout < 0 else 1) * inf
+                                if timeout <= 0:
+                                    raise QueueEmpty
 
-                    if isnan(timeout):
-                        msg = "'timeout' must be a number (non-NaN)"
-                        raise ValueError(msg)
+                            notified = self.not_empty.wait(timeout)
 
-                    if timeout < 0:
-                        msg = "'timeout' must be a non-negative number"
-                        raise ValueError(msg)
+                            qsize = self._qsize()
 
-                    if endtime is None:
-                        endtime = green_clock() + timeout
+                            rescheduled = True
+                    elif timeout is None:
+                        while qsize <= 0:
+                            self._check_closing()
 
-                    while not self._qsize():
-                        self._check_closing()
+                            notified = self.not_empty.wait()
 
-                        remaining = endtime - green_clock()
+                            qsize = self._qsize()
 
-                        if remaining <= 0:
+                            rescheduled = True
+                    else:
+                        if qsize <= 0:
+                            self._check_closing()
+
                             raise QueueEmpty
 
-                        self.not_empty.wait(remaining)
+                        if not block:
+                            break
+
+                    if not rescheduled and green_checkpoint_enabled():
+                        state = self.mutex._release_save()
+
+                        try:
+                            green_checkpoint()
+                        finally:
+                            self.mutex._acquire_restore(state)
 
                         rescheduled = True
+                    else:
+                        break
 
-                if not rescheduled and green_checkpoint_enabled():
-                    self.mutex.release()
+                item = self._get()
 
-                    try:
-                        green_checkpoint()
-                    finally:
-                        self.mutex.acquire()
+                new_qsize = self._qsize()
+                new_tasks = qsize - new_qsize
+                assert new_tasks >= 0
 
-                    rescheduled = True
-                else:
-                    break
+                if new_tasks != 1:
+                    self.__one_get_one_item = False
 
-            item = self._get()
+                if 0 < self._maxsize and new_tasks:
+                    if new_qsize < self._maxsize:
+                        if self.__one_put_one_item:
+                            if self._maxsize < qsize:
+                                self.not_full.notify(self._maxsize - new_qsize)
+                            else:
+                                self.not_full.notify(new_tasks)
+                        else:
+                            self.not_full.notify()
 
-            if 0 >= self._maxsize or self._maxsize > self._qsize():
-                self.not_full.notify()
-
-        return item
+                return item
+            finally:
+                if notified and not self.__one_get_one_item:
+                    self.not_empty.notify()
 
     async def async_get(self) -> _T:
         rescheduled = False
+        notified = False
 
         with self.not_empty:
-            while True:
-                while not self._qsize():
-                    self._check_closing()
+            try:
+                while True:
+                    qsize = self._qsize()
 
-                    await self.not_empty
+                    while qsize <= 0:
+                        self._check_closing()
 
-                    rescheduled = True
+                        notified = await self.not_empty
 
-                if not rescheduled and async_checkpoint_enabled():
-                    self.mutex.release()
+                        qsize = self._qsize()
 
-                    try:
-                        await async_checkpoint()
-                    finally:
-                        self.mutex.acquire()
+                        rescheduled = True
 
-                    rescheduled = True
-                else:
-                    break
+                    if not rescheduled and async_checkpoint_enabled():
+                        state = self.mutex._release_save()
 
-            item = self._get()
+                        try:
+                            await async_checkpoint()
+                        finally:
+                            self.mutex._acquire_restore(state)
 
-            if 0 >= self._maxsize or self._maxsize > self._qsize():
-                self.not_full.notify()
+                        rescheduled = True
+                    else:
+                        break
 
-        return item
+                item = self._get()
+
+                new_qsize = self._qsize()
+                new_tasks = qsize - new_qsize
+                assert new_tasks >= 0
+
+                if new_tasks != 1:
+                    self.__one_get_one_item = False
+
+                if 0 < self._maxsize and new_tasks:
+                    if new_qsize < self._maxsize:
+                        if self.__one_put_one_item:
+                            if self._maxsize < qsize:
+                                self.not_full.notify(self._maxsize - new_qsize)
+                            else:
+                                self.not_full.notify(new_tasks)
+                        else:
+                            self.not_full.notify()
+
+                return item
+            finally:
+                if notified and not self.__one_get_one_item:
+                    self.not_empty.notify()
 
     def get_nowait(self) -> _T:
         with self.mutex:
-            if not self._qsize():
+            qsize = self._qsize()
+
+            if qsize <= 0:
                 self._check_closing()
 
                 raise QueueEmpty
 
             item = self._get()
 
-            if 0 >= self._maxsize or self._maxsize > self._qsize():
-                self.not_full.notify()
+            new_qsize = self._qsize()
+            new_tasks = qsize - new_qsize
+            assert new_tasks >= 0
 
-        return item
+            if new_tasks != 1:
+                self.__one_get_one_item = False
+
+            if 0 < self._maxsize and new_tasks:
+                if new_qsize < self._maxsize:
+                    if self.__one_put_one_item:
+                        if self._maxsize < qsize:
+                            self.not_full.notify(self._maxsize - new_qsize)
+                        else:
+                            self.not_full.notify(new_tasks)
+                    else:
+                        self.not_full.notify()
+
+            return item
 
     def sync_peek(
         self,
@@ -380,121 +538,146 @@ class Queue(MixedQueue[_T]):
     ) -> _T:
         rescheduled = False
         notified = False
-        endtime = None
+        deadline = None
+
+        if timeout is not None:
+            if isinstance(timeout, int):
+                try:
+                    timeout = float(timeout)
+                except OverflowError:
+                    timeout = (-1 if timeout < 0 else +1) * inf
+
+            if isnan(timeout):
+                msg = "'timeout' must be a number (non-NaN)"
+                raise ValueError(msg)
+
+            if timeout < 0:
+                msg = "'timeout' must be a non-negative number"
+                raise ValueError(msg)
+
+            if isinf(timeout):
+                timeout = None
+
+        if not block:
+            timeout = 0
 
         with self.not_empty:
-            self._check_peekable()
+            try:
+                while True:
+                    self._check_peekable()
+                    qsize = self._qsize()
 
-            while True:
-                if not block:
-                    if not self._qsize():
-                        self._check_closing()
+                    if timeout:
+                        while qsize <= 0:
+                            self._check_closing()
 
-                        raise QueueEmpty
-                elif timeout is None:
-                    while not self._qsize():
-                        self._check_closing()
+                            if deadline is None:
+                                deadline = green_clock() + timeout
+                            else:
+                                timeout = deadline - green_clock()
 
-                        notified = self.not_empty.wait()
+                                if timeout <= 0:
+                                    raise QueueEmpty
 
-                        rescheduled = True
-                else:
-                    if isinstance(timeout, int):
-                        try:
-                            timeout = float(timeout)
-                        except OverflowError:
-                            timeout = (-1 if timeout < 0 else 1) * inf
+                            notified = self.not_empty.wait(timeout)
 
-                    if isnan(timeout):
-                        msg = "'timeout' must be a number (non-NaN)"
-                        raise ValueError(msg)
+                            self._check_peekable()
+                            qsize = self._qsize()
 
-                    if timeout < 0:
-                        msg = "'timeout' must be a non-negative number"
-                        raise ValueError(msg)
+                            rescheduled = True
+                    elif timeout is None:
+                        while qsize <= 0:
+                            self._check_closing()
 
-                    if endtime is None:
-                        endtime = green_clock() + timeout
+                            notified = self.not_empty.wait()
 
-                    while not self._qsize():
-                        self._check_closing()
+                            self._check_peekable()
+                            qsize = self._qsize()
 
-                        remaining = endtime - green_clock()
+                            rescheduled = True
+                    else:
+                        if qsize <= 0:
+                            self._check_closing()
 
-                        if remaining <= 0:
                             raise QueueEmpty
 
-                        notified = self.not_empty.wait(remaining)
+                        if not block:
+                            break
+
+                    if not rescheduled and green_checkpoint_enabled():
+                        state = self.mutex._release_save()
+
+                        try:
+                            green_checkpoint()
+                        finally:
+                            self.mutex._acquire_restore(state)
 
                         rescheduled = True
+                    else:
+                        break
 
-                if not rescheduled and green_checkpoint_enabled():
-                    self.mutex.release()
-
-                    try:
-                        green_checkpoint()
-                    finally:
-                        self.mutex.acquire()
-
-                    rescheduled = True
-                else:
-                    break
-
-            try:
                 item = self._peek()
+                assert self._qsize() == qsize
+
+                return item
             finally:
                 if notified:
                     self.not_empty.notify()
-
-        return item
 
     async def async_peek(self) -> _T:
         rescheduled = False
         notified = False
 
         with self.not_empty:
-            self._check_peekable()
-
-            while True:
-                while not self._qsize():
-                    self._check_closing()
-
-                    notified = await self.not_empty
-
-                    rescheduled = True
-
-                if not rescheduled and async_checkpoint_enabled():
-                    self.mutex.release()
-
-                    try:
-                        await async_checkpoint()
-                    finally:
-                        self.mutex.acquire()
-
-                    rescheduled = True
-                else:
-                    break
-
             try:
+                while True:
+                    self._check_peekable()
+                    qsize = self._qsize()
+
+                    while qsize <= 0:
+                        self._check_closing()
+
+                        notified = await self.not_empty
+
+                        self._check_peekable()
+                        qsize = self._qsize()
+
+                        rescheduled = True
+
+                    if not rescheduled and async_checkpoint_enabled():
+                        state = self.mutex._release_save()
+
+                        try:
+                            await async_checkpoint()
+                        finally:
+                            self.mutex._acquire_restore(state)
+
+                        rescheduled = True
+                    else:
+                        break
+
                 item = self._peek()
+                assert self._qsize() == qsize
+
+                return item
             finally:
                 if notified:
                     self.not_empty.notify()
 
-        return item
-
     def peek_nowait(self) -> _T:
         with self.mutex:
             self._check_peekable()
+            qsize = self._qsize()
 
-            if not self._qsize():
+            if qsize <= 0:
                 self._check_closing()
 
                 raise QueueEmpty
 
             item = self._peek()
+            assert self._qsize() == qsize
 
-        return item
+            return item
 
     def sync_join(self) -> None:
         rescheduled = False
@@ -538,11 +721,21 @@ class Queue(MixedQueue[_T]):
             self._is_shutdown = True
 
             if immediate:
-                while self._qsize():
+                qsize = self._qsize()
+
+                while qsize > 0:
                     self._get()
 
-                    if self._unfinished_tasks > 0:
-                        self._unfinished_tasks -= 1
+                    new_qsize = self._qsize()
+                    new_tasks = qsize - new_qsize
+                    assert new_tasks >= 0
+
+                    self._unfinished_tasks -= new_tasks
+
+                    if self._unfinished_tasks < 0:
+                        self._unfinished_tasks = 0
+
+                    qsize = new_qsize
 
                 self.all_tasks_done.notify_all()
 
@@ -592,16 +785,28 @@ class Queue(MixedQueue[_T]):
 
     def clear(self) -> None:
         with self.mutex:
-            size = self._qsize()
-            unfinished = max(0, self._unfinished_tasks - size)
+            qsize = self._qsize()
 
             self._clear()
 
-            if not unfinished:
-                self.all_tasks_done.notify_all()
+            new_qsize = self._qsize()
+            new_tasks = qsize - new_qsize
+            assert new_tasks >= 0
 
-            self._unfinished_tasks = unfinished
-            self.not_full.notify(size)
+            if 0 < self._maxsize and new_tasks:
+                if new_qsize < self._maxsize:
+                    if self.__one_put_one_item:
+                        if self._maxsize < qsize:
+                            self.not_full.notify(self._maxsize - new_qsize)
+                        else:
+                            self.not_full.notify(new_tasks)
+                    else:
+                        self.not_full.notify()
+
+            self._unfinished_tasks = max(0, self._unfinished_tasks - new_tasks)
+
+            if not self._unfinished_tasks:
+                self.all_tasks_done.notify_all()
 
     def _check_peekable(self) -> None:
         if not self._peekable():
@@ -624,9 +829,6 @@ class Queue(MixedQueue[_T]):
 
     def _isize(self, item: _T) -> int:
         return 1
-
-    def _chain(self) -> bool:
-        return False
 
     def _put(self, item: _T) -> None:
         self.__data.append(item)
@@ -708,12 +910,14 @@ class Queue(MixedQueue[_T]):
     @maxsize.setter
     def maxsize(self, value: int) -> None:
         with self.mutex:
-            maxsize = self._maxsize
-
-            if value <= 0:
-                self.not_full.notify_all()
-            elif value > maxsize:
-                self.not_full.notify(value - maxsize)
+            if 0 < self._maxsize:
+                if value <= 0:
+                    self.not_full.notify_all()
+                elif self._maxsize < value:
+                    if self.__one_put_one_item:
+                        self.not_full.notify(value - self._maxsize)
+                    else:
+                        self.not_full.notify()
 
             self._maxsize = value
 
@@ -739,10 +943,6 @@ class LifoQueue(Queue[_T]):
     @override
     def _isize(self, item: _T) -> int:
         return 1
-
-    @override
-    def _chain(self) -> bool:
-        return False
 
     @override
     def _put(self, item: _T) -> None:
@@ -786,10 +986,6 @@ class PriorityQueue(Queue[_RichComparableT]):
     @override
     def _isize(self, item: _RichComparableT) -> int:
         return 1
-
-    @override
-    def _chain(self) -> bool:
-        return False
 
     @override
     def _put(self, item: _RichComparableT) -> None:

@@ -51,7 +51,7 @@ class BaseQueue(Protocol[_T]):
         Return :data:`True` if the queue is empty, :data:`False` otherwise.
 
         This method is provided for compatibility with the standard queues. Use
-        ``queue.qsize() == 0`` as a direct substitute, but be aware that either
+        ``queue.qsize() <= 0`` as a direct substitute, but be aware that either
         approach risks a race condition where the queue can grow before the
         result of :meth:`empty` or :meth:`qsize` can be used.
 
