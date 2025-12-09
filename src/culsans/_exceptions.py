@@ -3,38 +3,22 @@
 # SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: ISC
 
+import asyncio
+import queue
 import sys
 
-from asyncio import QueueEmpty as AsyncEmpty, QueueFull as AsyncFull
-from queue import Empty as SyncEmpty, Full as SyncFull
+SyncQueueEmpty = queue.Empty
+AsyncQueueEmpty = asyncio.QueueEmpty
 
-if sys.version_info >= (3, 13):
-    from asyncio import QueueShutDown as AsyncShutDown
-    from queue import ShutDown as SyncShutDown
 
-    AsyncQueueShutDown = AsyncShutDown
-    SyncQueueShutDown = SyncShutDown
+class QueueEmpty(SyncQueueEmpty, AsyncQueueEmpty):
+    """
+    Raised when non-blocking get/peek with empty queue.
+    """
 
-    class QueueShutDown(SyncQueueShutDown, AsyncQueueShutDown):
-        """
-        Raised when put/get/peek with shut-down queue.
-        """
 
-else:
-
-    class QueueShutDown(Exception):
-        """
-        Raised when put/get/peek with shut-down queue.
-        """
-
-    SyncQueueShutDown = QueueShutDown
-    AsyncQueueShutDown = QueueShutDown
-
-AsyncQueueEmpty = AsyncEmpty
-SyncQueueEmpty = SyncEmpty
-
-AsyncQueueFull = AsyncFull
-SyncQueueFull = SyncFull
+SyncQueueFull = queue.Full
+AsyncQueueFull = asyncio.QueueFull
 
 
 class QueueFull(SyncQueueFull, AsyncQueueFull):
@@ -43,9 +27,26 @@ class QueueFull(SyncQueueFull, AsyncQueueFull):
     """
 
 
-class QueueEmpty(SyncQueueEmpty, AsyncQueueEmpty):
+if sys.version_info >= (3, 13):  # python/cpython#96471
+    SyncQueueShutDown = queue.ShutDown
+    AsyncQueueShutDown = asyncio.QueueShutDown
+
+else:
+
+    class SyncQueueShutDown(Exception):
+        """
+        A backport of :class:`queue.ShutDown`.
+        """
+
+    class AsyncQueueShutDown(Exception):
+        """
+        A backport of :class:`asyncio.QueueShutDown`.
+        """
+
+
+class QueueShutDown(SyncQueueShutDown, AsyncQueueShutDown):
     """
-    Raised when non-blocking get/peek with empty queue.
+    Raised when put/get/peek with shut-down queue.
     """
 
 

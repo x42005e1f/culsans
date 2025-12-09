@@ -62,8 +62,8 @@ keywords = [
     "trio",
 ]
 dependencies = [
-    "aiologic>=0.15.0",
-    "typing-extensions>=4.5.0; python_version<'3.12'",
+    "aiologic>=0.16.0,<0.18.0",
+    "typing-extensions>=4.10.0; python_version<'3.13'",
 ]
 
 [project.urls]
@@ -76,6 +76,9 @@ skip = [
     "tests/culsans/test_asyncio.py",
     "tests/culsans/test_queue.py",
 ]
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/culsans/_version.py"
 
 [tool.hatch.build.targets.sdist]
 exclude = [".*"]
@@ -199,6 +202,7 @@ ignore = [
     "PYI053",  # string-or-bytes-too-long
     "PYI054",  # numeric-literal-too-long
     # flake8-return
+    "RET501",  # unnecessary-return-none
     "RET504",  # unnecessary-assign
     "RET505",  # superfluous-else-return
     "RET506",  # superfluous-else-raise

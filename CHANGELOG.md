@@ -16,6 +16,68 @@ and this project adheres to
 Commit messages are consistent with
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+[Unreleased]
+------------
+
+### Added
+
+- `culsans.__version__` and `culsans.__version_tuple__` as a way to retrieve
+  the package version at runtime.
+- `count` parameter to the `task_done()` methods to identify that the specified
+  number of tasks has been completed. Useful for subclasses that implement
+  flattened queues.
+- `_isize()` overridable method, which allows to create subclasses that
+  implement sequence/flattened queues. Solves
+  [#9](https://github.com/x42005e1f/culsans/issues/9).
+- The proxies can now be weakly referenced. Previously, this was disallowed due
+  to their limited lifetime (since the corresponding properties return new
+  objects on each access). This is now allowed for cases where a proxy is used
+  as a backport to older versions of Python.
+- A negative queue length is now a valid value and is handled correctly
+  (extends subclassing capabilities).
+
+### Changed
+
+- The underlying lock is now reentrant. This differs from the standard queue
+  approach, but makes it much easier to create subclasses and also makes
+  `culsans.Queue` somewhat compatible with `sqlalchemy.util.queue.Queue`.
+  However, the main reason is not this, but to make the following change
+  efficiently implemented.
+- The queues now rely on new `aiologic` safety guarantees when using the
+  condition variables. Previously, as with `threading.Condition`, a
+  `KeyboardInterrupt` raised during synchronization on the underlying lock
+  after notification led to the lock being over-released and, as a result, to a
+  `RuntimeError`. Now, `aiologic.Condition` is used as a context manager,
+  thereby including additional checks on the `aiologic` side to ensure that the
+  current thread owns the lock when releasing it.
+- The `unfinished_tasks` property's value now changes according to the queue
+  size change (the value returned by the `_qsize()` method). This allows to
+  create flattened queues without introducing related additional methods and
+  also corrects the behavior for subclasses that may not change the queue size
+  as a result of insertion.
+- The `timeout` parameter's value is now checked and converted at the beginning
+  of the method call, regardless of the `block` parameter's value. This should
+  prevent cases where an incorrect value is passed.
+- The peekability check is now ensured before each call (after each context
+  switch), allowing the peek methods to be enabled/disabled dynamically.
+- The package now relies on `aiologic.meta.export()` for exports instead of
+  using its own implementation (similar to `aiologic==0.15.0`), which provides
+  safer behavior. In particular, queue methods now also update their metadata,
+  allowing them to be safely referenced during pickling.
+- The protocols are now inherited from `typing_extensions.Protocol` on Python
+  below 3.13, which backports all related fixes and improvements to older
+  versions of Python.
+- The shutdown exceptions are now defined again via backports (on Python below
+  3.13), but in a type-friendly manner.
+
+### Fixed
+
+- The sync methods called the checkpoint function regardless of the `block`
+  parameter's value. Now they do not make the call in the non-blocking case.
+- Notifications could be insufficient or excessive when the queue size changed
+  differently than in the standard behavior. Now such situations are detected
+  and a different notification mechanism is activated when they are detected.
+
 [0.10.0] - 2025-11-04
 ---------------------
 
@@ -223,6 +285,7 @@ Commit messages are consistent with
   than `janus.Queue` in multi-threaded tests, simplifies usage, and expands the
   number of supported use cases (multiple event loops, `trio` support, etc.).
 
+[unreleased]: https://github.com/x42005e1f/culsans/compare/0.10.0...HEAD
 [0.10.0]: https://github.com/x42005e1f/culsans/compare/0.9.0...0.10.0
 [0.9.0]: https://github.com/x42005e1f/culsans/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/x42005e1f/culsans/compare/0.7.1...0.8.0

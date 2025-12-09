@@ -18,7 +18,10 @@ class SyncQueueProxy(SyncQueue[_T]):
     queue.
     """
 
-    __slots__ = ("wrapped",)
+    __slots__ = (
+        "__weakref__",
+        "wrapped",
+    )
 
     wrapped: MixedQueue[_T]
 
@@ -69,8 +72,8 @@ class SyncQueueProxy(SyncQueue[_T]):
     def join(self) -> None:
         self.wrapped.sync_join()
 
-    def task_done(self) -> None:
-        self.wrapped.task_done()
+    def task_done(self, count: int = 1) -> None:
+        self.wrapped.task_done(count)
 
     def shutdown(self, immediate: bool = False) -> None:
         self.wrapped.shutdown(immediate)
@@ -105,7 +108,10 @@ class AsyncQueueProxy(AsyncQueue[_T]):
     mixed queue.
     """
 
-    __slots__ = ("wrapped",)
+    __slots__ = (
+        "__weakref__",
+        "wrapped",
+    )
 
     wrapped: MixedQueue[_T]
 
@@ -151,8 +157,8 @@ class AsyncQueueProxy(AsyncQueue[_T]):
     async def join(self) -> None:
         await self.wrapped.async_join()
 
-    def task_done(self) -> None:
-        self.wrapped.task_done()
+    def task_done(self, count: int = 1) -> None:
+        self.wrapped.task_done(count)
 
     def shutdown(self, immediate: bool = False) -> None:
         self.wrapped.shutdown(immediate)

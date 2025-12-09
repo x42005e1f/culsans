@@ -5,9 +5,16 @@
 
 from __future__ import annotations
 
-from typing import Protocol, TypeVar
+import sys
 
-from ._utils import _copydoc as copydoc
+from typing import TypeVar
+
+from ._utils import copydoc
+
+if sys.version_info >= (3, 13):  # various fixes and improvements
+    from typing import Protocol
+else:  # typing-extensions>=4.10.0
+    from typing_extensions import Protocol
 
 _T = TypeVar("_T")
 
@@ -44,7 +51,7 @@ class BaseQueue(Protocol[_T]):
         Return :data:`True` if the queue is empty, :data:`False` otherwise.
 
         This method is provided for compatibility with the standard queues. Use
-        ``queue.qsize() == 0`` as a direct substitute, but be aware that either
+        ``queue.qsize() <= 0`` as a direct substitute, but be aware that either
         approach risks a race condition where the queue can grow before the
         result of :meth:`empty` or :meth:`qsize` can be used.
 
@@ -110,7 +117,7 @@ class BaseQueue(Protocol[_T]):
         """
         ...
 
-    def task_done(self) -> None:
+    def task_done(self, count: int = 1) -> None:
         """
         Indicate that a formerly enqueued task is complete.
 
@@ -121,6 +128,10 @@ class BaseQueue(Protocol[_T]):
         If a join call is currently blocking, it will resume when all items
         have been processed (meaning that a :meth:`task_done` call was received
         for every item that had been put into the queue).
+
+        Args:
+          count:
+            Number of completed tasks (useful for flattened queues).
 
         Raises:
           ValueError:
