@@ -356,7 +356,7 @@ Documentation
 
 Read the Docs: https://culsans.readthedocs.io (official)
 
-DeepWiki: https://deepwiki.com/x42005e1f/culsans (AI generated)
+DeepWiki: https://deepwiki.com/x42005e1f/culsans (AI generated; lying!)
 
 Communication channels
 ======================
