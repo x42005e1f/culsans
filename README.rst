@@ -374,15 +374,6 @@ Dependents
 See `x42005e1f/culsans#6 <https://github.com/x42005e1f/culsans/discussions/
 6>`__.
 
-Support
-=======
-
-If you like culsans and want to support its development, please star `its
-repository on GitHub <https://github.com/x42005e1f/culsans>`_.
-
-.. image:: https://starchart.cc/x42005e1f/culsans.svg?variant=adaptive
-  :target: https://starchart.cc/x42005e1f/culsans
-
 License
 =======
 
