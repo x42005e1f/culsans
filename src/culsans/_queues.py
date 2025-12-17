@@ -128,6 +128,10 @@ class Queue(MixedQueue[_T]):
         with self.mutex:
             return self._peekable()
 
+    def clearable(self) -> bool:
+        with self.mutex:
+            return self._clearable()
+
     def qsize(self) -> int:
         with self.mutex:
             return self._qsize()
@@ -723,19 +727,35 @@ class Queue(MixedQueue[_T]):
             if immediate:
                 qsize = self._qsize()
 
-                while qsize > 0:
-                    self._get()
+                if self._clearable():
+                    if qsize > 0:
+                        self._clear()
 
-                    new_qsize = self._qsize()
-                    new_tasks = qsize - new_qsize
-                    assert new_tasks >= 0
+                        new_qsize = self._qsize()
+                        assert new_qsize <= 0
+                        new_tasks = qsize - new_qsize
+                        assert new_tasks >= 0
 
-                    self._unfinished_tasks -= new_tasks
+                        self._unfinished_tasks -= new_tasks
 
-                    if self._unfinished_tasks < 0:
-                        self._unfinished_tasks = 0
+                        if self._unfinished_tasks < 0:
+                            self._unfinished_tasks = 0
 
-                    qsize = new_qsize
+                        qsize = new_qsize
+                else:
+                    while qsize > 0:
+                        self._get()
+
+                        new_qsize = self._qsize()
+                        new_tasks = qsize - new_qsize
+                        assert new_tasks >= 0
+
+                        self._unfinished_tasks -= new_tasks
+
+                        if self._unfinished_tasks < 0:
+                            self._unfinished_tasks = 0
+
+                        qsize = new_qsize
 
                 self.all_tasks_done.notify_all()
 
@@ -785,11 +805,13 @@ class Queue(MixedQueue[_T]):
 
     def clear(self) -> None:
         with self.mutex:
+            self._check_clearable()
             qsize = self._qsize()
 
             self._clear()
 
             new_qsize = self._qsize()
+            assert new_qsize <= 0
             new_tasks = qsize - new_qsize
             assert new_tasks >= 0
 
@@ -808,14 +830,19 @@ class Queue(MixedQueue[_T]):
             if not self._unfinished_tasks:
                 self.all_tasks_done.notify_all()
 
+    def _check_closing(self) -> None:
+        if self._is_shutdown:
+            raise QueueShutDown
+
     def _check_peekable(self) -> None:
         if not self._peekable():
             msg = "peeking not supported"
             raise UnsupportedOperation(msg)
 
-    def _check_closing(self) -> None:
-        if self._is_shutdown:
-            raise QueueShutDown
+    def _check_clearable(self) -> None:
+        if not self._clearable():
+            msg = "clearing not supported"
+            raise UnsupportedOperation(msg)
 
     # Override these methods to implement other queue organizations
     # (e.g. stack or priority queue).
@@ -836,10 +863,13 @@ class Queue(MixedQueue[_T]):
     def _get(self) -> _T:
         return self.__data.popleft()
 
+    def _peekable(self) -> bool:
+        return True
+
     def _peek(self) -> _T:
         return self.__data[0]
 
-    def _peekable(self) -> bool:
+    def _clearable(self) -> bool:
         return True
 
     def _clear(self) -> None:
@@ -953,11 +983,15 @@ class LifoQueue(Queue[_T]):
         return self.__data.pop()
 
     @override
+    def _peekable(self) -> bool:
+        return True
+
+    @override
     def _peek(self) -> _T:
         return self.__data[-1]
 
     @override
-    def _peekable(self) -> bool:
+    def _clearable(self) -> bool:
         return True
 
     @override
@@ -996,11 +1030,15 @@ class PriorityQueue(Queue[_RichComparableT]):
         return heappop(self.__data)
 
     @override
+    def _peekable(self) -> bool:
+        return True
+
+    @override
     def _peek(self) -> _RichComparableT:
         return self.__data[0]
 
     @override
-    def _peekable(self) -> bool:
+    def _clearable(self) -> bool:
         return True
 
     @override

@@ -37,6 +37,9 @@ class SyncQueueProxy(SyncQueue[_T]):
     def peekable(self) -> bool:
         return self.wrapped.peekable()
 
+    def clearable(self) -> bool:
+        return self.wrapped.clearable()
+
     def qsize(self) -> int:
         return self.wrapped.qsize()
 
@@ -126,6 +129,9 @@ class AsyncQueueProxy(AsyncQueue[_T]):
 
     def peekable(self) -> bool:
         return self.wrapped.peekable()
+
+    def clearable(self) -> bool:
+        return self.wrapped.clearable()
 
     def qsize(self) -> int:
         return self.wrapped.qsize()

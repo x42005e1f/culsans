@@ -207,6 +207,7 @@ the queue most efficiently.
 
         await anyio.sleep(1e-3)
         assert async_q.qsize() == 3
+        assert async_q.clearable()
 
         async_q.clear()  # clearing
 
@@ -256,10 +257,13 @@ unordered queue that contains only unique items:
         def _get(self):
             return self.data.pop()
 
-        _peek = None
-
         def _peekable(self):
             return False
+
+        _peek = None
+
+        def _clearable(self):
+            return True
 
         def _clear(self):
             self.data.clear()
@@ -275,7 +279,7 @@ unordered queue that contains only unique items:
     assert sync_q.qsize() == 2
     assert sorted(sync_q.get_nowait() for _ in range(2)) == [23, 42]
 
-All eight of these methods are called in exclusive access mode, so you can
+All nine of these methods are called in exclusive access mode, so you can
 freely create your subclasses without thinking about whether your methods are
 thread-safe or not.
 

@@ -52,5 +52,5 @@ class QueueShutDown(SyncQueueShutDown, AsyncQueueShutDown):
 
 class UnsupportedOperation(ValueError):
     """
-    Raised when peek with non-peekable queue.
+    Raised when peek/clear with non-peekable/non-clearable queue.
     """

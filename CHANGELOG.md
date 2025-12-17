@@ -23,6 +23,11 @@ Commit messages are consistent with
 
 - `culsans.__version__` and `culsans.__version_tuple__` as a way to retrieve
   the package version at runtime.
+- `clearable()` methods and related `culsans.Queue._clearable()` protected
+  method (for overriding) analogous to those for peek methods, making
+  implementation of the `clear()` method optional. Along with this, the
+  `clear()` method is now also used in the implementation of the `shutdown()`
+  method, when available.
 - `count` parameter to the `task_done()` methods to identify that the specified
   number of tasks has been completed. Useful for subclasses that implement
   flattened queues.
@@ -217,7 +222,7 @@ Commit messages are consistent with
 
 ### Added
 
-- `peekable()` methods and related `culsans.Queue._peekable()` private method
+- `peekable()` methods and related `culsans.Queue._peekable()` protected method
   (for overriding). They simplify non-peekable subclass creation by providing a
   unified contract for how to deal with it from the user's side.
 - `culsans.UnsupportedOperation` exception, which is raised when attempting to
@@ -235,12 +240,12 @@ Commit messages are consistent with
   closer to the queue shutdown methods from Python 3.13. This differs from the
   `janus` behavior, but solves
   [aio-libs/janus#237](https://github.com/aio-libs/janus/issues/237).
-- `peek()` and `peek_nowait()` methods, related `culsans.Queue._peek()` private
-  method (for overriding), as a way to retrieve an item from a queue without
-  removing it. In a sense, they implement partial compatibility with the
-  `gevent` queues, but peek/front is also a well-known third type of queue
+- `peek()` and `peek_nowait()` methods, related `culsans.Queue._peek()`
+  protected method (for overriding), as a way to retrieve an item from a queue
+  without removing it. In a sense, they implement partial compatibility with
+  the `gevent` queues, but peek/front is also a well-known third type of queue
   operation.
-- `clear()` method and related `culsans.Queue._clear()` private method (for
+- `clear()` method and related `culsans.Queue._clear()` protected method (for
   overriding). Atomically clears the queue, ensuring that other threads do not
   affect the clearing process, and updates the `unfinished_tasks` property at
   the same time. Solves

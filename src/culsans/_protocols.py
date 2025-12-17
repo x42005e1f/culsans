@@ -35,6 +35,12 @@ class BaseQueue(Protocol[_T]):
         """
         ...
 
+    def clearable(self) -> bool:
+        """
+        Return :data:`True` if the queue is clearable, :data:`False` otherwise.
+        """
+        ...
+
     def qsize(self) -> int:
         """
         Return the number of items in the queue.
@@ -165,6 +171,10 @@ class BaseQueue(Protocol[_T]):
         Clear all items from the queue atomically.
 
         Also calls :meth:`task_done` for each removed item.
+
+        Raises:
+          UnsupportedOperation:
+            if the queue is not clearable.
         """
         ...
 

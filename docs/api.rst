@@ -137,6 +137,6 @@ Exceptions
 
   Bases: :exc:`ValueError`
 
-  Exception raised when peek is called on a :class:`~culsans.Queue` object
-  which is not peekable.
+  Exception raised when peek/clear is called on a :class:`~culsans.Queue`
+  object which is not peekable/clearable.
 .. culsans.UnsupportedOperation-end-marker
