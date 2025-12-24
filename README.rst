@@ -362,6 +362,11 @@ Read the Docs: https://culsans.readthedocs.io (official)
 
 DeepWiki: https://deepwiki.com/x42005e1f/culsans (AI generated; lying!)
 
+There are also related posts:
+
+* https://news.ycombinator.com/item?id=46339322 — how it all began
+* https://redd.it/1psjsnu — a brief introduction
+
 Communication channels
 ======================
 
