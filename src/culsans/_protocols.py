@@ -47,8 +47,17 @@ class BaseQueue(Protocol[_T]):
 
         This method is provided for compatibility with the standard queues.
         Note, ``queue.qsize() > 0`` does not guarantee that subsequent get/peek
-        calls will not block. Similarly, ``queue.qsize() < queue.maxsize`` does
-        not guarantee that subsequent put calls will not block.
+        calls will not block.
+        """
+        ...
+
+    def isize(self, item: _T) -> int:
+        """
+        Return the size of the item.
+
+        This method uses the sizer passed during initialization. If it was not
+        passed (and the corresponding protected attribute/method was not
+        defined), it returns 1 for any object.
         """
         ...
 
@@ -71,9 +80,9 @@ class BaseQueue(Protocol[_T]):
         Return :data:`True` if the queue is full, :data:`False` otherwise.
 
         This method is provided for compatibility with the standard queues. Use
-        ``queue.qsize() >= queue.maxsize`` as a direct substitute, but be aware
+        ``queue.size >= queue.maxsize`` as a direct substitute, but be aware
         that either approach risks a race condition where the queue can shrink
-        before the result of :meth:`full` or :meth:`qsize` can be used.
+        before the result of :meth:`full` or :attr:`size` can be used.
         """
         ...
 
@@ -123,7 +132,7 @@ class BaseQueue(Protocol[_T]):
         """
         ...
 
-    def task_done(self, count: int = 1) -> None:
+    def task_done(self) -> None:
         """
         Indicate that a formerly enqueued task is complete.
 
@@ -134,10 +143,6 @@ class BaseQueue(Protocol[_T]):
         If a join call is currently blocking, it will resume when all items
         have been processed (meaning that a :meth:`task_done` call was received
         for every item that had been put into the queue).
-
-        Args:
-          count:
-            Number of completed tasks (useful for flattened queues).
 
         Raises:
           ValueError:
@@ -211,7 +216,11 @@ class BaseQueue(Protocol[_T]):
     @property
     def maxsize(self) -> int:
         """
-        The maximum number of items which the queue can hold.
+        The maximum cumulative size of items which the queue can hold.
+
+        if *maxsize* is <= 0, the size is infinite. If it is an integer greater
+        that 0, then the put methods block when the queue reaches *maxsize*
+        until an item is removed by the get methods.
 
         It can be changed dynamically by setting the attribute.
         """
@@ -219,6 +228,13 @@ class BaseQueue(Protocol[_T]):
 
     @maxsize.setter
     def maxsize(self, value: int) -> None: ...
+
+    @property
+    def size(self) -> int:
+        """
+        The current cumulative size of items in the queue.
+        """
+        ...
 
 
 class MixedQueue(BaseQueue[_T], Protocol[_T]):

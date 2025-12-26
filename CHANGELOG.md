@@ -28,21 +28,27 @@ Commit messages are consistent with
   implementation of the `clear()` method optional. Along with this, the
   `clear()` method is now also used in the implementation of the `shutdown()`
   method, when available.
-- `count` parameter to the `task_done()` methods to identify that the specified
-  number of tasks has been completed. Useful for subclasses that implement
-  flattened queues.
-- `_isize()` overridable method, which allows to create subclasses that
-  implement sequence/flattened queues. Solves
+- `sizer` parameter, corresponding `isize()` public methods, and `_isize`
+  protected attribute/method (for overriding). Allows to specify the size for
+  each queue item, which affects the put methods. Solves
   [#9](https://github.com/x42005e1f/culsans/issues/9).
+- `size` property, which returns the cumulative size of items in the queue.
 - The proxies can now be weakly referenced. Previously, this was disallowed due
   to their limited lifetime (since the corresponding properties return new
   objects on each access). This is now allowed for cases where a proxy is used
   as a backport to older versions of Python.
 - A negative queue length is now a valid value and is handled correctly
   (extends subclassing capabilities).
+- A negative value of the `unfinished_tasks` property is now treated as
+  infinity (extends subclassing capabilities).
 
 ### Changed
 
+- The `maxsize` property is now defined as the maximum cumulative size of queue
+  items rather than the maximum queue length. This allows arbitrary queue item
+  sizes to be supported, but may require existing code to be modified to work
+  correctly when passing a custom sizer (as this affects both the put methods
+  and the `full()` methods).
 - The underlying lock is now reentrant. This differs from the standard queue
   approach, but makes it much easier to create subclasses and also makes
   `culsans.Queue` somewhat compatible with `sqlalchemy.util.queue.Queue`.
@@ -56,10 +62,10 @@ Commit messages are consistent with
   thereby including additional checks on the `aiologic` side to ensure that the
   current thread owns the lock when releasing it.
 - The `unfinished_tasks` property's value now changes according to the queue
-  size change (the value returned by the `_qsize()` method). This allows to
+  length change (the value returned by the `_qsize()` method). This allows to
   create flattened queues without introducing related additional methods and
-  also corrects the behavior for subclasses that may not change the queue size
-  as a result of insertion.
+  also corrects the behavior for subclasses that may not change the queue
+  length as a result of insertion.
 - The `timeout` parameter's value is now checked and converted at the beginning
   of the method call, regardless of the `block` parameter's value. This should
   prevent cases where an incorrect value is passed.
@@ -79,9 +85,10 @@ Commit messages are consistent with
 
 - The sync methods called the checkpoint function regardless of the `block`
   parameter's value. Now they do not make the call in the non-blocking case.
-- Notifications could be insufficient or excessive when the queue size changed
-  differently than in the standard behavior. Now such situations are detected
-  and a different notification mechanism is activated when they are detected.
+- Notifications could be insufficient or excessive when the queue length
+  changed differently than in the standard behavior. Now such situations are
+  detected and a different notification mechanism is activated when they are
+  detected.
 
 [0.10.0] - 2025-11-04
 ---------------------

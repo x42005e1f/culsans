@@ -21,6 +21,7 @@ from aiologic.lowlevel import (
     green_checkpoint_enabled,
     green_clock,
 )
+from aiologic.meta import DEFAULT, DefaultType
 
 from ._exceptions import (
     QueueEmpty,
@@ -35,6 +36,11 @@ if TYPE_CHECKING:
     from typing import Any
 
     from aiologic.lowlevel import ThreadRLock
+
+    if sys.version_info >= (3, 9):  # PEP 585
+        from collections.abc import Callable
+    else:
+        from typing import Callable
 
 if sys.version_info >= (3, 12):  # PEP 698
     from typing import override
@@ -77,7 +83,9 @@ class Queue(MixedQueue[_T]):
         "__one_put_one_item",
         "__weakref__",
         "_is_shutdown",
+        "_isize",
         "_maxsize",
+        "_size",
         "_unfinished_tasks",
         "all_tasks_done",
         "mutex",
@@ -90,6 +98,9 @@ class Queue(MixedQueue[_T]):
     __one_put_one_item: bool
     __one_get_one_item: bool
 
+    _isize: Callable[[_T], int]
+
+    _size: int
     _maxsize: int
     _unfinished_tasks: int
     _is_shutdown: bool
@@ -100,15 +111,27 @@ class Queue(MixedQueue[_T]):
     not_empty: Condition[ThreadRLock]
     all_tasks_done: Condition[ThreadRLock]
 
-    def __init__(self, maxsize: int = 0) -> None:
+    def __init__(
+        self,
+        maxsize: int = 0,
+        *,
+        sizer: Callable[[_T], int] | DefaultType = DEFAULT,
+    ) -> None:
         """
         Create a queue object with the given maximum size.
 
-        if *maxsize* is <= 0, the queue size is infinite. If it is an integer
-        greater that 0, then the put methods block when the queue reaches
-        *maxsize* until an item is removed by the get methods.
+        Args:
+          sizer:
+            A function used to calculate the size of each item in the queue.
         """
 
+        if sizer is DEFAULT:
+            if not hasattr(self, "_isize"):
+                self._isize = self.__isize
+        else:
+            self._isize = sizer
+
+        self._size = 0
         self._maxsize = maxsize
         self._unfinished_tasks = 0
         self._is_shutdown = False
@@ -136,13 +159,17 @@ class Queue(MixedQueue[_T]):
         with self.mutex:
             return self._qsize()
 
+    def isize(self, item: _T) -> int:
+        with self.mutex:
+            return self._isize(item)
+
     def empty(self) -> bool:
         with self.mutex:
             return self._qsize() <= 0
 
     def full(self) -> bool:
         with self.mutex:
-            return 0 < self._maxsize <= self._qsize()
+            return 0 < self._maxsize <= self._size
 
     def sync_put(
         self,
@@ -179,8 +206,7 @@ class Queue(MixedQueue[_T]):
             try:
                 while True:
                     self._check_closing()
-
-                    qsize = self._qsize()
+                    size = self._size
                     isize = self._isize(item)
                     assert isize >= 0
 
@@ -188,7 +214,7 @@ class Queue(MixedQueue[_T]):
                         self.__one_put_one_item = False
 
                     if timeout:
-                        while 0 < self._maxsize <= qsize + isize - 1:
+                        while 0 < self._maxsize <= size + isize - 1:
                             if deadline is None:
                                 deadline = green_clock() + timeout
                             else:
@@ -200,19 +226,19 @@ class Queue(MixedQueue[_T]):
                             notified = self.not_full.wait(timeout)
 
                             self._check_closing()
-                            qsize = self._qsize()
+                            size = self._size
 
                             rescheduled = True
                     elif timeout is None:
-                        while 0 < self._maxsize <= qsize + isize - 1:
+                        while 0 < self._maxsize <= size + isize - 1:
                             notified = self.not_full.wait()
 
                             self._check_closing()
-                            qsize = self._qsize()
+                            size = self._size
 
                             rescheduled = True
                     else:
-                        if 0 < self._maxsize <= qsize + isize - 1:
+                        if 0 < self._maxsize <= size + isize - 1:
                             raise QueueFull
 
                         if not block:
@@ -230,26 +256,31 @@ class Queue(MixedQueue[_T]):
                     else:
                         break
 
+                length = self._qsize()
+
                 self._put(item)
 
-                new_qsize = self._qsize()
-                new_tasks = new_qsize - qsize
+                new_length = self._qsize()
+                new_tasks = new_length - length
                 assert new_tasks >= 0
 
                 if new_tasks != 1:
                     self.__one_put_one_item = False
 
                 if new_tasks:
-                    if 0 < new_qsize:
+                    if 0 < new_length:
                         if self.__one_get_one_item:
-                            if qsize < 0:
-                                self.not_empty.notify(new_qsize)
+                            if length < 0:
+                                self.not_empty.notify(new_length)
                             else:
                                 self.not_empty.notify(new_tasks)
                         else:
                             self.not_empty.notify()
 
-                self._unfinished_tasks += new_tasks
+                    if (tasks := self._unfinished_tasks) >= 0:
+                        self._unfinished_tasks = tasks + new_tasks
+
+                    self._size += isize
             finally:
                 if notified and not self.__one_put_one_item:
                     self.not_full.notify()
@@ -262,19 +293,18 @@ class Queue(MixedQueue[_T]):
             try:
                 while True:
                     self._check_closing()
-
-                    qsize = self._qsize()
+                    size = self._size
                     isize = self._isize(item)
                     assert isize >= 0
 
                     if isize != 1:
                         self.__one_put_one_item = False
 
-                    while 0 < self._maxsize <= qsize + isize - 1:
+                    while 0 < self._maxsize <= size + isize - 1:
                         notified = await self.not_full
 
                         self._check_closing()
-                        qsize = self._qsize()
+                        size = self._size
 
                         rescheduled = True
 
@@ -290,26 +320,31 @@ class Queue(MixedQueue[_T]):
                     else:
                         break
 
+                length = self._qsize()
+
                 self._put(item)
 
-                new_qsize = self._qsize()
-                new_tasks = new_qsize - qsize
+                new_length = self._qsize()
+                new_tasks = new_length - length
                 assert new_tasks >= 0
 
                 if new_tasks != 1:
                     self.__one_put_one_item = False
 
                 if new_tasks:
-                    if 0 < new_qsize:
+                    if 0 < new_length:
                         if self.__one_get_one_item:
-                            if qsize < 0:
-                                self.not_empty.notify(new_qsize)
+                            if length < 0:
+                                self.not_empty.notify(new_length)
                             else:
                                 self.not_empty.notify(new_tasks)
                         else:
                             self.not_empty.notify()
 
-                self._unfinished_tasks += new_tasks
+                    if (tasks := self._unfinished_tasks) >= 0:
+                        self._unfinished_tasks = tasks + new_tasks
+
+                    self._size += isize
             finally:
                 if notified and not self.__one_put_one_item:
                     self.not_full.notify()
@@ -317,37 +352,41 @@ class Queue(MixedQueue[_T]):
     def put_nowait(self, item: _T) -> None:
         with self.mutex:
             self._check_closing()
-
-            qsize = self._qsize()
+            size = self._size
             isize = self._isize(item)
             assert isize >= 0
 
             if isize != 1:
                 self.__one_put_one_item = False
 
-            if 0 < self._maxsize <= qsize + isize - 1:
+            if 0 < self._maxsize <= size + isize - 1:
                 raise QueueFull
+
+            length = self._qsize()
 
             self._put(item)
 
-            new_qsize = self._qsize()
-            new_tasks = new_qsize - qsize
+            new_length = self._qsize()
+            new_tasks = new_length - length
             assert new_tasks >= 0
 
             if new_tasks != 1:
                 self.__one_put_one_item = False
 
             if new_tasks:
-                if 0 < new_qsize:
+                if 0 < new_length:
                     if self.__one_get_one_item:
-                        if qsize < 0:
-                            self.not_empty.notify(new_qsize)
+                        if length < 0:
+                            self.not_empty.notify(new_length)
                         else:
                             self.not_empty.notify(new_tasks)
                     else:
                         self.not_empty.notify()
 
-            self._unfinished_tasks += new_tasks
+                if (tasks := self._unfinished_tasks) >= 0:
+                    self._unfinished_tasks = tasks + new_tasks
+
+                self._size += isize
 
     def sync_get(self, block: bool = True, timeout: float | None = None) -> _T:
         rescheduled = False
@@ -378,10 +417,10 @@ class Queue(MixedQueue[_T]):
         with self.not_empty:
             try:
                 while True:
-                    qsize = self._qsize()
+                    length = self._qsize()
 
                     if timeout:
-                        while qsize <= 0:
+                        while length <= 0:
                             self._check_closing()
 
                             if deadline is None:
@@ -394,20 +433,20 @@ class Queue(MixedQueue[_T]):
 
                             notified = self.not_empty.wait(timeout)
 
-                            qsize = self._qsize()
+                            length = self._qsize()
 
                             rescheduled = True
                     elif timeout is None:
-                        while qsize <= 0:
+                        while length <= 0:
                             self._check_closing()
 
                             notified = self.not_empty.wait()
 
-                            qsize = self._qsize()
+                            length = self._qsize()
 
                             rescheduled = True
                     else:
-                        if qsize <= 0:
+                        if length <= 0:
                             self._check_closing()
 
                             raise QueueEmpty
@@ -429,22 +468,28 @@ class Queue(MixedQueue[_T]):
 
                 item = self._get()
 
-                new_qsize = self._qsize()
-                new_tasks = qsize - new_qsize
+                new_tasks = length - self._qsize()
                 assert new_tasks >= 0
 
                 if new_tasks != 1:
                     self.__one_get_one_item = False
 
-                if 0 < self._maxsize and new_tasks:
-                    if new_qsize < self._maxsize:
+                if new_tasks:
+                    size = self._size
+                    isize = self._isize(item)
+                    new_size = size - isize
+                    assert new_size <= size
+
+                    if 0 < self._maxsize and new_size < self._maxsize:
                         if self.__one_put_one_item:
-                            if self._maxsize < qsize:
-                                self.not_full.notify(self._maxsize - new_qsize)
+                            if self._maxsize < size:
+                                self.not_full.notify(self._maxsize - new_size)
                             else:
-                                self.not_full.notify(new_tasks)
+                                self.not_full.notify(isize)
                         else:
                             self.not_full.notify()
+
+                    self._size = new_size
 
                 return item
             finally:
@@ -458,14 +503,14 @@ class Queue(MixedQueue[_T]):
         with self.not_empty:
             try:
                 while True:
-                    qsize = self._qsize()
+                    length = self._qsize()
 
-                    while qsize <= 0:
+                    while length <= 0:
                         self._check_closing()
 
                         notified = await self.not_empty
 
-                        qsize = self._qsize()
+                        length = self._qsize()
 
                         rescheduled = True
 
@@ -483,22 +528,28 @@ class Queue(MixedQueue[_T]):
 
                 item = self._get()
 
-                new_qsize = self._qsize()
-                new_tasks = qsize - new_qsize
+                new_tasks = length - self._qsize()
                 assert new_tasks >= 0
 
                 if new_tasks != 1:
                     self.__one_get_one_item = False
 
-                if 0 < self._maxsize and new_tasks:
-                    if new_qsize < self._maxsize:
+                if new_tasks:
+                    size = self._size
+                    isize = self._isize(item)
+                    new_size = size - isize
+                    assert new_size <= size
+
+                    if 0 < self._maxsize and new_size < self._maxsize:
                         if self.__one_put_one_item:
-                            if self._maxsize < qsize:
-                                self.not_full.notify(self._maxsize - new_qsize)
+                            if self._maxsize < size:
+                                self.not_full.notify(self._maxsize - new_size)
                             else:
-                                self.not_full.notify(new_tasks)
+                                self.not_full.notify(isize)
                         else:
                             self.not_full.notify()
+
+                    self._size = new_size
 
                 return item
             finally:
@@ -507,31 +558,37 @@ class Queue(MixedQueue[_T]):
 
     def get_nowait(self) -> _T:
         with self.mutex:
-            qsize = self._qsize()
+            length = self._qsize()
 
-            if qsize <= 0:
+            if length <= 0:
                 self._check_closing()
 
                 raise QueueEmpty
 
             item = self._get()
 
-            new_qsize = self._qsize()
-            new_tasks = qsize - new_qsize
+            new_tasks = length - self._qsize()
             assert new_tasks >= 0
 
             if new_tasks != 1:
                 self.__one_get_one_item = False
 
-            if 0 < self._maxsize and new_tasks:
-                if new_qsize < self._maxsize:
+            if new_tasks:
+                size = self._size
+                isize = self._isize(item)
+                new_size = size - isize
+                assert new_size <= size
+
+                if 0 < self._maxsize and new_size < self._maxsize:
                     if self.__one_put_one_item:
-                        if self._maxsize < qsize:
-                            self.not_full.notify(self._maxsize - new_qsize)
+                        if self._maxsize < size:
+                            self.not_full.notify(self._maxsize - new_size)
                         else:
-                            self.not_full.notify(new_tasks)
+                            self.not_full.notify(isize)
                     else:
                         self.not_full.notify()
+
+                self._size = new_size
 
             return item
 
@@ -569,10 +626,10 @@ class Queue(MixedQueue[_T]):
             try:
                 while True:
                     self._check_peekable()
-                    qsize = self._qsize()
+                    length = self._qsize()
 
                     if timeout:
-                        while qsize <= 0:
+                        while length <= 0:
                             self._check_closing()
 
                             if deadline is None:
@@ -586,21 +643,21 @@ class Queue(MixedQueue[_T]):
                             notified = self.not_empty.wait(timeout)
 
                             self._check_peekable()
-                            qsize = self._qsize()
+                            length = self._qsize()
 
                             rescheduled = True
                     elif timeout is None:
-                        while qsize <= 0:
+                        while length <= 0:
                             self._check_closing()
 
                             notified = self.not_empty.wait()
 
                             self._check_peekable()
-                            qsize = self._qsize()
+                            length = self._qsize()
 
                             rescheduled = True
                     else:
-                        if qsize <= 0:
+                        if length <= 0:
                             self._check_closing()
 
                             raise QueueEmpty
@@ -621,7 +678,7 @@ class Queue(MixedQueue[_T]):
                         break
 
                 item = self._peek()
-                assert self._qsize() == qsize
+                assert self._qsize() == length
 
                 return item
             finally:
@@ -636,15 +693,15 @@ class Queue(MixedQueue[_T]):
             try:
                 while True:
                     self._check_peekable()
-                    qsize = self._qsize()
+                    length = self._qsize()
 
-                    while qsize <= 0:
+                    while length <= 0:
                         self._check_closing()
 
                         notified = await self.not_empty
 
                         self._check_peekable()
-                        qsize = self._qsize()
+                        length = self._qsize()
 
                         rescheduled = True
 
@@ -661,7 +718,7 @@ class Queue(MixedQueue[_T]):
                         break
 
                 item = self._peek()
-                assert self._qsize() == qsize
+                assert self._qsize() == length
 
                 return item
             finally:
@@ -671,15 +728,15 @@ class Queue(MixedQueue[_T]):
     def peek_nowait(self) -> _T:
         with self.mutex:
             self._check_peekable()
-            qsize = self._qsize()
+            length = self._qsize()
 
-            if qsize <= 0:
+            if length <= 0:
                 self._check_closing()
 
                 raise QueueEmpty
 
             item = self._peek()
-            assert self._qsize() == qsize
+            assert self._qsize() == length
 
             return item
 
@@ -707,55 +764,66 @@ class Queue(MixedQueue[_T]):
         if not rescheduled:
             await async_checkpoint()
 
-    def task_done(self, count: int = 1) -> None:
+    def task_done(self) -> None:
         with self.mutex:
-            unfinished = self._unfinished_tasks - count
+            tasks = self._unfinished_tasks - 1
 
-            if unfinished <= 0:
-                if unfinished < 0:
+            if tasks <= 0:
+                if tasks < -1:
+                    return
+
+                if tasks < 0:
                     msg = "task_done() called too many times"
                     raise ValueError(msg)
 
                 self.all_tasks_done.notify_all()
 
-            self._unfinished_tasks = unfinished
+            self._unfinished_tasks = tasks
 
     def shutdown(self, immediate: bool = False) -> None:
         with self.mutex:
             self._is_shutdown = True
 
             if immediate:
-                qsize = self._qsize()
+                length = self._qsize()
+                size = self._size
 
                 if self._clearable():
-                    if qsize > 0:
-                        self._clear()
+                    self._clear()
 
-                        new_qsize = self._qsize()
-                        assert new_qsize <= 0
-                        new_tasks = qsize - new_qsize
-                        assert new_tasks >= 0
+                    new_size = self._size
+                    assert new_size <= 0 or new_size == size
+                    new_length = self._qsize()
+                    assert new_length <= 0
+                    new_tasks = length - new_length
+                    assert new_tasks >= 0
 
-                        self._unfinished_tasks -= new_tasks
-
-                        if self._unfinished_tasks < 0:
-                            self._unfinished_tasks = 0
-
-                        qsize = new_qsize
+                    if new_tasks:
+                        new_size = min(new_size, 0)
                 else:
-                    while qsize > 0:
-                        self._get()
+                    new_size = size
+                    new_tasks = 0
 
-                        new_qsize = self._qsize()
-                        new_tasks = qsize - new_qsize
-                        assert new_tasks >= 0
+                    while length > 0:
+                        item = self._get()
 
-                        self._unfinished_tasks -= new_tasks
+                        isize = self._isize(item)
+                        assert isize >= 0
+                        new_size -= isize
+                        new_length = self._qsize()
+                        assert new_length <= length
+                        new_tasks += length - new_length
 
-                        if self._unfinished_tasks < 0:
-                            self._unfinished_tasks = 0
+                        length = new_length
 
-                        qsize = new_qsize
+                    if new_tasks:
+                        assert new_size <= 0
+
+                if new_tasks:
+                    if (tasks := self._unfinished_tasks) > 0:
+                        self._unfinished_tasks = max(0, tasks - new_tasks)
+
+                    self._size = new_size
 
                 self.all_tasks_done.notify_all()
 
@@ -806,29 +874,37 @@ class Queue(MixedQueue[_T]):
     def clear(self) -> None:
         with self.mutex:
             self._check_clearable()
-            qsize = self._qsize()
+            length = self._qsize()
+            size = self._size
 
             self._clear()
 
-            new_qsize = self._qsize()
-            assert new_qsize <= 0
-            new_tasks = qsize - new_qsize
+            new_size = self._size
+            assert new_size <= 0 or new_size == size
+            new_length = self._qsize()
+            assert new_length <= 0
+            new_tasks = length - new_length
             assert new_tasks >= 0
 
-            if 0 < self._maxsize and new_tasks:
-                if new_qsize < self._maxsize:
+            if new_tasks:
+                new_size = min(new_size, 0)
+
+                if 0 < self._maxsize and new_size < self._maxsize:
                     if self.__one_put_one_item:
-                        if self._maxsize < qsize:
-                            self.not_full.notify(self._maxsize - new_qsize)
+                        if self._maxsize < size:
+                            self.not_full.notify(self._maxsize - new_size)
                         else:
-                            self.not_full.notify(new_tasks)
+                            self.not_full.notify(size - new_size)
                     else:
                         self.not_full.notify()
 
-            self._unfinished_tasks = max(0, self._unfinished_tasks - new_tasks)
+                if (tasks := self._unfinished_tasks) > 0:
+                    self._unfinished_tasks = max(0, tasks - new_tasks)
 
-            if not self._unfinished_tasks:
-                self.all_tasks_done.notify_all()
+                    if not self._unfinished_tasks:
+                        self.all_tasks_done.notify_all()
+
+                self._size = new_size
 
     def _check_closing(self) -> None:
         if self._is_shutdown:
@@ -844,6 +920,9 @@ class Queue(MixedQueue[_T]):
             msg = "clearing not supported"
             raise UnsupportedOperation(msg)
 
+    def __isize(self, item: _T) -> int:
+        return 1
+
     # Override these methods to implement other queue organizations
     # (e.g. stack or priority queue).
     # These will only be called with appropriate locks held
@@ -853,9 +932,6 @@ class Queue(MixedQueue[_T]):
 
     def _qsize(self) -> int:
         return len(self.__data)
-
-    def _isize(self, item: _T) -> int:
-        return 1
 
     def _put(self, item: _T) -> None:
         self.__data.append(item)
@@ -951,6 +1027,10 @@ class Queue(MixedQueue[_T]):
 
             self._maxsize = value
 
+    @property
+    def size(self) -> int:
+        return self._size
+
 
 class LifoQueue(Queue[_T]):
     """
@@ -969,10 +1049,6 @@ class LifoQueue(Queue[_T]):
     @override
     def _qsize(self) -> int:
         return len(self.__data)
-
-    @override
-    def _isize(self, item: _T) -> int:
-        return 1
 
     @override
     def _put(self, item: _T) -> None:
@@ -1016,10 +1092,6 @@ class PriorityQueue(Queue[_RichComparableT]):
     @override
     def _qsize(self) -> int:
         return len(self.__data)
-
-    @override
-    def _isize(self, item: _RichComparableT) -> int:
-        return 1
 
     @override
     def _put(self, item: _RichComparableT) -> None:

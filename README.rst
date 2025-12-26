@@ -248,9 +248,6 @@ unordered queue that contains only unique items:
         def _qsize(self):
             return len(self.data)
 
-        def _isize(self, item):
-            return 1
-
         def _put(self, item):
             self.data.add(item)
 
@@ -279,28 +276,9 @@ unordered queue that contains only unique items:
     assert sync_q.qsize() == 2
     assert sorted(sync_q.get_nowait() for _ in range(2)) == [23, 42]
 
-All nine of these methods are called in exclusive access mode, so you can
+All eight of these methods are called in exclusive access mode, so you can
 freely create your subclasses without thinking about whether your methods are
 thread-safe or not.
-
-Sequence/flattened queues
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-By default, all items inserted into the queue are considered single-element
-items, and checks for maxsize are performed based on this assumption. However,
-if you implement queues of sequences such as lists or byte arrays, you may need
-to treat items by their actual size so that no insertion can exceed maxsize. To
-do this, you can override the ``_isize()`` method (in addition to
-``_qsize()``):
-
-.. code:: python
-
-    def _isize(self, item):
-        return len(item)
-
-This way, the insertion will be blocked until there is enough space in the
-queue. But note that since all insertions are performed in FIFO mode, inserting
-a large item will prevent the insertion of subsequent small items.
 
 Checkpoints
 -----------
