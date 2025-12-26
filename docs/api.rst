@@ -21,6 +21,9 @@ Queues
 Proxies
 -------
 
+.. autoclass:: culsans.BaseQueueProxy
+  :members:
+  :no-inherited-members:
 .. autoclass:: culsans.SyncQueueProxy
   :members:
   :no-inherited-members:

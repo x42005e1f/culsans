@@ -39,6 +39,7 @@ from ._protocols import (
 )
 from ._proxies import (
     AsyncQueueProxy as AsyncQueueProxy,
+    BaseQueueProxy as BaseQueueProxy,
     SyncQueueProxy as SyncQueueProxy,
 )
 from ._queues import (

@@ -23,6 +23,10 @@ Commit messages are consistent with
 
 - `culsans.__version__` and `culsans.__version_tuple__` as a way to retrieve
   the package version at runtime.
+- `culsans.BaseQueueProxy` as a common superclass for `culsans.SyncQueueProxy`
+  and `culsans.AsyncQueueProxy`. Added to reduce code duplication, but can also
+  be used separately for other purposes (such as checking that an object is an
+  instance of either proxy type).
 - `clearable()` methods and related `culsans.Queue._clearable()` protected
   method (for overriding) analogous to those for peek methods, making
   implementation of the `clear()` method optional. Along with this, the
