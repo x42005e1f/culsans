@@ -51,7 +51,8 @@ from ._queues import (
 # prepare for external use
 from aiologic import meta  # isort: skip
 
-meta.export(globals())
+if not __import__("os").getenv("SPHINX_AUTODOC_RELOAD_MODULES", ""):
+    meta.export(globals())  # aiologic<0.17.0
 meta.export_dynamic(globals(), "__version__", "._version.version")
 meta.export_dynamic(globals(), "__version_tuple__", "._version.version_tuple")
 
