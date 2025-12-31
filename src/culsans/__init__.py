@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
+# SPDX-FileCopyrightText: 2025 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: ISC
 
 """
@@ -19,35 +19,29 @@ __author__: str = "Ilya Egorov <0x42005e1f@gmail.com>"
 __version__: str  # dynamic
 __version_tuple__: tuple[int | str, ...]  # dynamic
 
-from ._exceptions import (
+from ._queues import (
+    AsyncQueue as AsyncQueue,
     AsyncQueueEmpty as AsyncQueueEmpty,
     AsyncQueueFull as AsyncQueueFull,
+    AsyncQueueProxy as AsyncQueueProxy,
     AsyncQueueShutDown as AsyncQueueShutDown,
+    BaseQueue as BaseQueue,
+    BaseQueueProxy as BaseQueueProxy,
+    GreenQueue as GreenQueue,
+    GreenQueueProxy as GreenQueueProxy,
+    LifoQueue as LifoQueue,
+    MixedQueue as MixedQueue,
+    PriorityQueue as PriorityQueue,
+    Queue as Queue,
     QueueEmpty as QueueEmpty,
     QueueFull as QueueFull,
     QueueShutDown as QueueShutDown,
+    SyncQueue as SyncQueue,
     SyncQueueEmpty as SyncQueueEmpty,
     SyncQueueFull as SyncQueueFull,
+    SyncQueueProxy as SyncQueueProxy,
     SyncQueueShutDown as SyncQueueShutDown,
     UnsupportedOperation as UnsupportedOperation,
-)
-from ._protocols import (
-    AsyncQueue as AsyncQueue,
-    BaseQueue as BaseQueue,
-    GreenQueue as GreenQueue,
-    MixedQueue as MixedQueue,
-    SyncQueue as SyncQueue,
-)
-from ._proxies import (
-    AsyncQueueProxy as AsyncQueueProxy,
-    BaseQueueProxy as BaseQueueProxy,
-    GreenQueueProxy as GreenQueueProxy,
-    SyncQueueProxy as SyncQueueProxy,
-)
-from ._queues import (
-    LifoQueue as LifoQueue,
-    PriorityQueue as PriorityQueue,
-    Queue as Queue,
 )
 
 # prepare for external use

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
+# SPDX-FileCopyrightText: 2025 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: ISC
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, TypeVar
 
 from aiologic.meta import DEFAULT
 
-from ._utils import copydoc
+from culsans._utils import copydoc
 
 if TYPE_CHECKING:
     from aiologic.meta import DefaultType
