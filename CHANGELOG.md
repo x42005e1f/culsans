@@ -23,6 +23,10 @@ Commit messages are consistent with
 
 - `culsans.__version__` and `culsans.__version_tuple__` as a way to retrieve
   the package version at runtime.
+- `culsans.Grouper` (initial implementation) as a higher-level synchronization
+  primitive with phase-fair priority policy by default. See
+  [x42005e1f/aiologic#19](https://github.com/x42005e1f/aiologic/issues/19) for
+  details.
 - `culsans.BaseQueueProxy` as a common superclass for `culsans.SyncQueueProxy`
   and `culsans.AsyncQueueProxy`. Added to reduce code duplication, but can also
   be used separately for other purposes (such as checking that an object is an

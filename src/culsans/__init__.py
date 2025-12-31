@@ -19,6 +19,9 @@ __author__: str = "Ilya Egorov <0x42005e1f@gmail.com>"
 __version__: str  # dynamic
 __version_tuple__: tuple[int | str, ...]  # dynamic
 
+from ._groupers import (
+    Grouper as Grouper,
+)
 from ._queues import (
     AsyncQueue as AsyncQueue,
     AsyncQueueEmpty as AsyncQueueEmpty,
