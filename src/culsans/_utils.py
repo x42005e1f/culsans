@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 def copydoc(wrapped: Callable[..., Any]) -> Callable[[_CallableT], _CallableT]:
-    def decorator(function: _CallableT) -> _CallableT:
+    def decorator(function: _CallableT, /) -> _CallableT:
         function.__doc__ = wrapped.__doc__
 
         return function

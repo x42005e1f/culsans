@@ -27,6 +27,9 @@ Proxies
 .. autoclass:: culsans.SyncQueueProxy
   :members:
   :no-inherited-members:
+.. autoclass:: culsans.GreenQueueProxy
+  :members:
+  :no-inherited-members:
 .. autoclass:: culsans.AsyncQueueProxy
   :members:
   :no-inherited-members:
@@ -41,6 +44,9 @@ Protocols
   :members:
   :no-inherited-members:
 .. autoclass:: culsans.SyncQueue
+  :no-members:
+  :no-inherited-members:
+.. autoclass:: culsans.GreenQueue
   :members:
   :no-inherited-members:
 .. autoclass:: culsans.AsyncQueue

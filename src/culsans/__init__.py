@@ -34,12 +34,14 @@ from ._exceptions import (
 from ._protocols import (
     AsyncQueue as AsyncQueue,
     BaseQueue as BaseQueue,
+    GreenQueue as GreenQueue,
     MixedQueue as MixedQueue,
     SyncQueue as SyncQueue,
 )
 from ._proxies import (
     AsyncQueueProxy as AsyncQueueProxy,
     BaseQueueProxy as BaseQueueProxy,
+    GreenQueueProxy as GreenQueueProxy,
     SyncQueueProxy as SyncQueueProxy,
 )
 from ._queues import (

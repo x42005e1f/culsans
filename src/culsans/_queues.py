@@ -21,7 +21,7 @@ from aiologic.lowlevel import (
     green_checkpoint_enabled,
     green_clock,
 )
-from aiologic.meta import DEFAULT, DefaultType
+from aiologic.meta import DEFAULT, DefaultType, copies
 
 from ._exceptions import (
     QueueEmpty,
@@ -30,7 +30,7 @@ from ._exceptions import (
     UnsupportedOperation,
 )
 from ._protocols import MixedQueue
-from ._proxies import AsyncQueueProxy, SyncQueueProxy
+from ._proxies import AsyncQueueProxy, GreenQueueProxy, SyncQueueProxy
 
 if TYPE_CHECKING:
     from typing import Any
@@ -113,6 +113,7 @@ class Queue(MixedQueue[_T]):
 
     def __init__(
         self,
+        /,
         maxsize: int = 0,
         *,
         sizer: Callable[[_T], int] | DefaultType = DEFAULT,
@@ -147,36 +148,67 @@ class Queue(MixedQueue[_T]):
 
         self._init(maxsize)  # data
 
-    def peekable(self) -> bool:
+    def __bool__(self, /) -> bool:
         with self.mutex:
-            return self._peekable()
+            return 0 < self._qsize()
 
-    def clearable(self) -> bool:
-        with self.mutex:
-            return self._clearable()
-
-    def qsize(self) -> int:
+    def __len__(self, /) -> int:
         with self.mutex:
             return self._qsize()
 
-    def isize(self, item: _T) -> int:
+    def peekable(self, /) -> bool:
+        with self.mutex:
+            return self._peekable()
+
+    def clearable(self, /) -> bool:
+        with self.mutex:
+            return self._clearable()
+
+    def isize(self, /, item: _T) -> int:
         with self.mutex:
             return self._isize(item)
 
-    def empty(self) -> bool:
+    def qsize(self, /) -> int:
+        with self.mutex:
+            return self._qsize()
+
+    def empty(self, /) -> bool:
         with self.mutex:
             return self._qsize() <= 0
 
-    def full(self) -> bool:
+    def full(self, /) -> bool:
         with self.mutex:
             return 0 < self._maxsize <= self._size
 
     def sync_put(
         self,
+        /,
         item: _T,
-        block: bool = True,
+        block: bool | DefaultType = DEFAULT,
         timeout: float | None = None,
+        *,
+        blocking: bool | DefaultType = DEFAULT,
     ) -> None:
+        self.green_put(item, block, timeout, blocking=blocking)
+
+    def green_put(
+        self,
+        /,
+        item: _T,
+        block: bool | DefaultType = DEFAULT,
+        timeout: float | None = None,
+        *,
+        blocking: bool | DefaultType = DEFAULT,
+    ) -> None:
+        if blocking is DEFAULT:
+            if block is DEFAULT:
+                blocking = True
+            else:
+                blocking = block
+        elif block is not DEFAULT:
+            msg = "cannot specify both 'block' and 'blocking'"
+            raise ValueError(msg)
+
         rescheduled = False
         notified = False
         deadline = None
@@ -199,7 +231,7 @@ class Queue(MixedQueue[_T]):
             if isinf(timeout):
                 timeout = None
 
-        if not block:
+        if not blocking:
             timeout = 0
 
         with self.not_full:
@@ -241,7 +273,7 @@ class Queue(MixedQueue[_T]):
                         if 0 < self._maxsize <= size + isize - 1:
                             raise QueueFull
 
-                        if not block:
+                        if not blocking:
                             break
 
                     if not rescheduled and green_checkpoint_enabled():
@@ -285,7 +317,9 @@ class Queue(MixedQueue[_T]):
                 if notified and not self.__one_put_one_item:
                     self.not_full.notify()
 
-    async def async_put(self, item: _T) -> None:
+    sync_put = copies(green_put, sync_put)
+
+    async def async_put(self, /, item: _T) -> None:
         rescheduled = False
         notified = False
 
@@ -349,7 +383,7 @@ class Queue(MixedQueue[_T]):
                 if notified and not self.__one_put_one_item:
                     self.not_full.notify()
 
-    def put_nowait(self, item: _T) -> None:
+    def put_nowait(self, /, item: _T) -> None:
         with self.mutex:
             self._check_closing()
             size = self._size
@@ -388,7 +422,33 @@ class Queue(MixedQueue[_T]):
 
                 self._size += isize
 
-    def sync_get(self, block: bool = True, timeout: float | None = None) -> _T:
+    def sync_get(
+        self,
+        /,
+        block: bool | DefaultType = DEFAULT,
+        timeout: float | None = None,
+        *,
+        blocking: bool | DefaultType = DEFAULT,
+    ) -> _T:
+        return self.green_get(block, timeout, blocking=blocking)
+
+    def green_get(
+        self,
+        /,
+        block: bool | DefaultType = DEFAULT,
+        timeout: float | None = None,
+        *,
+        blocking: bool | DefaultType = DEFAULT,
+    ) -> _T:
+        if blocking is DEFAULT:
+            if block is DEFAULT:
+                blocking = True
+            else:
+                blocking = block
+        elif block is not DEFAULT:
+            msg = "cannot specify both 'block' and 'blocking'"
+            raise ValueError(msg)
+
         rescheduled = False
         notified = False
         deadline = None
@@ -411,7 +471,7 @@ class Queue(MixedQueue[_T]):
             if isinf(timeout):
                 timeout = None
 
-        if not block:
+        if not blocking:
             timeout = 0
 
         with self.not_empty:
@@ -451,7 +511,7 @@ class Queue(MixedQueue[_T]):
 
                             raise QueueEmpty
 
-                        if not block:
+                        if not blocking:
                             break
 
                     if not rescheduled and green_checkpoint_enabled():
@@ -496,7 +556,9 @@ class Queue(MixedQueue[_T]):
                 if notified and not self.__one_get_one_item:
                     self.not_empty.notify()
 
-    async def async_get(self) -> _T:
+    sync_get = copies(green_get, sync_get)
+
+    async def async_get(self, /) -> _T:
         rescheduled = False
         notified = False
 
@@ -556,7 +618,7 @@ class Queue(MixedQueue[_T]):
                 if notified and not self.__one_get_one_item:
                     self.not_empty.notify()
 
-    def get_nowait(self) -> _T:
+    def get_nowait(self, /) -> _T:
         with self.mutex:
             length = self._qsize()
 
@@ -594,9 +656,31 @@ class Queue(MixedQueue[_T]):
 
     def sync_peek(
         self,
-        block: bool = True,
+        /,
+        block: bool | DefaultType = DEFAULT,
         timeout: float | None = None,
+        *,
+        blocking: bool | DefaultType = DEFAULT,
     ) -> _T:
+        return self.green_peek(block, timeout, blocking=blocking)
+
+    def green_peek(
+        self,
+        /,
+        block: bool | DefaultType = DEFAULT,
+        timeout: float | None = None,
+        *,
+        blocking: bool | DefaultType = DEFAULT,
+    ) -> _T:
+        if blocking is DEFAULT:
+            if block is DEFAULT:
+                blocking = True
+            else:
+                blocking = block
+        elif block is not DEFAULT:
+            msg = "cannot specify both 'block' and 'blocking'"
+            raise ValueError(msg)
+
         rescheduled = False
         notified = False
         deadline = None
@@ -619,7 +703,7 @@ class Queue(MixedQueue[_T]):
             if isinf(timeout):
                 timeout = None
 
-        if not block:
+        if not blocking:
             timeout = 0
 
         with self.not_empty:
@@ -662,7 +746,7 @@ class Queue(MixedQueue[_T]):
 
                             raise QueueEmpty
 
-                        if not block:
+                        if not blocking:
                             break
 
                     if not rescheduled and green_checkpoint_enabled():
@@ -685,7 +769,9 @@ class Queue(MixedQueue[_T]):
                 if notified:
                     self.not_empty.notify()
 
-    async def async_peek(self) -> _T:
+    sync_peek = copies(green_peek, sync_peek)
+
+    async def async_peek(self, /) -> _T:
         rescheduled = False
         notified = False
 
@@ -725,7 +811,7 @@ class Queue(MixedQueue[_T]):
                 if notified:
                     self.not_empty.notify()
 
-    def peek_nowait(self) -> _T:
+    def peek_nowait(self, /) -> _T:
         with self.mutex:
             self._check_peekable()
             length = self._qsize()
@@ -740,7 +826,10 @@ class Queue(MixedQueue[_T]):
 
             return item
 
-    def sync_join(self) -> None:
+    def sync_join(self, /) -> None:
+        self.green_join()
+
+    def green_join(self, /) -> None:
         rescheduled = False
 
         with self.all_tasks_done:
@@ -752,7 +841,9 @@ class Queue(MixedQueue[_T]):
         if not rescheduled:
             green_checkpoint()
 
-    async def async_join(self) -> None:
+    sync_join = copies(green_join, sync_join)
+
+    async def async_join(self, /) -> None:
         rescheduled = False
 
         with self.all_tasks_done:
@@ -764,7 +855,7 @@ class Queue(MixedQueue[_T]):
         if not rescheduled:
             await async_checkpoint()
 
-    def task_done(self) -> None:
+    def task_done(self, /) -> None:
         with self.mutex:
             tasks = self._unfinished_tasks - 1
 
@@ -780,7 +871,7 @@ class Queue(MixedQueue[_T]):
 
             self._unfinished_tasks = tasks
 
-    def shutdown(self, immediate: bool = False) -> None:
+    def shutdown(self, /, immediate: bool = False) -> None:
         with self.mutex:
             self._is_shutdown = True
 
@@ -830,10 +921,8 @@ class Queue(MixedQueue[_T]):
             self.not_empty.notify_all()
             self.not_full.notify_all()
 
-    def close(self) -> None:
+    def close(self, /) -> None:
         """
-        Close the queue.
-
         This method is provided for compatibility with the Janus queues. Use
         :meth:`queue.shutdown(immediate=True) <BaseQueue.shutdown>` as a direct
         substitute.
@@ -841,10 +930,8 @@ class Queue(MixedQueue[_T]):
 
         self.shutdown(immediate=True)
 
-    async def wait_closed(self) -> None:
+    async def wait_closed(self, /) -> None:
         """
-        Wait for finishing all pending activities.
-
         This method is provided for compatibility with the Janus queues. It
         actually does nothing.
 
@@ -859,10 +946,8 @@ class Queue(MixedQueue[_T]):
 
         await async_checkpoint()
 
-    async def aclose(self) -> None:
+    async def aclose(self, /) -> None:
         """
-        Shutdown the queue and wait for actual shutting down.
-
         This method is provided for compatibility with the Janus queues. Use
         :meth:`queue.shutdown(immediate=True) <BaseQueue.shutdown>` as a direct
         substitute.
@@ -871,7 +956,7 @@ class Queue(MixedQueue[_T]):
         self.close()
         await self.wait_closed()
 
-    def clear(self) -> None:
+    def clear(self, /) -> None:
         with self.mutex:
             self._check_clearable()
             length = self._qsize()
@@ -906,61 +991,69 @@ class Queue(MixedQueue[_T]):
 
                 self._size = new_size
 
-    def _check_closing(self) -> None:
+    def _check_closing(self, /) -> None:
         if self._is_shutdown:
             raise QueueShutDown
 
-    def _check_peekable(self) -> None:
+    def _check_peekable(self, /) -> None:
         if not self._peekable():
             msg = "peeking not supported"
             raise UnsupportedOperation(msg)
 
-    def _check_clearable(self) -> None:
+    def _check_clearable(self, /) -> None:
         if not self._clearable():
             msg = "clearing not supported"
             raise UnsupportedOperation(msg)
 
-    def __isize(self, item: _T) -> int:
+    def __isize(self, /, item: _T) -> int:
         return 1
 
     # Override these methods to implement other queue organizations
     # (e.g. stack or priority queue).
     # These will only be called with appropriate locks held
 
-    def _init(self, maxsize: int) -> None:
+    def _init(self, /, maxsize: int) -> None:
         self.__data = deque()
 
-    def _qsize(self) -> int:
+    def _qsize(self, /) -> int:
         return len(self.__data)
 
-    def _put(self, item: _T) -> None:
+    def _put(self, /, item: _T) -> None:
         self.__data.append(item)
 
-    def _get(self) -> _T:
+    def _get(self, /) -> _T:
         return self.__data.popleft()
 
-    def _peekable(self) -> bool:
+    def _peekable(self, /) -> bool:
         return True
 
-    def _peek(self) -> _T:
+    def _peek(self, /) -> _T:
         return self.__data[0]
 
-    def _clearable(self) -> bool:
+    def _clearable(self, /) -> bool:
         return True
 
-    def _clear(self) -> None:
+    def _clear(self, /) -> None:
         self.__data.clear()
 
     @property
-    def sync_q(self) -> SyncQueueProxy[_T]:
-        return SyncQueueProxy(self)
+    def green_proxy(self, /) -> GreenQueueProxy[_T]:
+        return GreenQueueProxy(self)
 
     @property
-    def async_q(self) -> AsyncQueueProxy[_T]:
+    def async_proxy(self, /) -> AsyncQueueProxy[_T]:
         return AsyncQueueProxy(self)
 
     @property
-    def putting(self) -> int:
+    def sync_q(self, /) -> SyncQueueProxy[_T]:
+        return SyncQueueProxy(self)
+
+    @property
+    def async_q(self, /) -> AsyncQueueProxy[_T]:
+        return AsyncQueueProxy(self)
+
+    @property
+    def putting(self, /) -> int:
         """
         The current number of threads/tasks waiting to put.
 
@@ -971,7 +1064,7 @@ class Queue(MixedQueue[_T]):
         return self.not_full.waiting
 
     @property
-    def getting(self) -> int:
+    def getting(self, /) -> int:
         """
         The current number of threads/tasks waiting to get/peek.
 
@@ -982,7 +1075,7 @@ class Queue(MixedQueue[_T]):
         return self.not_empty.waiting
 
     @property
-    def waiting(self) -> int:
+    def waiting(self, /) -> int:
         """
         The current number of threads/tasks waiting to access.
 
@@ -998,23 +1091,23 @@ class Queue(MixedQueue[_T]):
             return self.not_full.waiting + self.not_empty.waiting
 
     @property
-    def unfinished_tasks(self) -> int:
+    def unfinished_tasks(self, /) -> int:
         return self._unfinished_tasks
 
     @property
-    def is_shutdown(self) -> bool:
+    def is_shutdown(self, /) -> bool:
         return self._is_shutdown
 
     @property
-    def closed(self) -> bool:
+    def closed(self, /) -> bool:
         return self._is_shutdown
 
     @property
-    def maxsize(self) -> int:
+    def maxsize(self, /) -> int:
         return self._maxsize
 
     @maxsize.setter
-    def maxsize(self, value: int) -> None:
+    def maxsize(self, value: int, /) -> None:
         with self.mutex:
             if 0 < self._maxsize:
                 if value <= 0:
@@ -1028,7 +1121,7 @@ class Queue(MixedQueue[_T]):
             self._maxsize = value
 
     @property
-    def size(self) -> int:
+    def size(self, /) -> int:
         return self._size
 
 
@@ -1043,35 +1136,35 @@ class LifoQueue(Queue[_T]):
     __data: list[_T]
 
     @override
-    def _init(self, maxsize: int) -> None:
+    def _init(self, /, maxsize: int) -> None:
         self.__data = []
 
     @override
-    def _qsize(self) -> int:
+    def _qsize(self, /) -> int:
         return len(self.__data)
 
     @override
-    def _put(self, item: _T) -> None:
+    def _put(self, /, item: _T) -> None:
         self.__data.append(item)
 
     @override
-    def _get(self) -> _T:
+    def _get(self, /) -> _T:
         return self.__data.pop()
 
     @override
-    def _peekable(self) -> bool:
+    def _peekable(self, /) -> bool:
         return True
 
     @override
-    def _peek(self) -> _T:
+    def _peek(self, /) -> _T:
         return self.__data[-1]
 
     @override
-    def _clearable(self) -> bool:
+    def _clearable(self, /) -> bool:
         return True
 
     @override
-    def _clear(self) -> None:
+    def _clear(self, /) -> None:
         self.__data.clear()
 
 
@@ -1086,33 +1179,33 @@ class PriorityQueue(Queue[_RichComparableT]):
     __data: list[_RichComparableT]
 
     @override
-    def _init(self, maxsize: int) -> None:
+    def _init(self, /, maxsize: int) -> None:
         self.__data = []
 
     @override
-    def _qsize(self) -> int:
+    def _qsize(self, /) -> int:
         return len(self.__data)
 
     @override
-    def _put(self, item: _RichComparableT) -> None:
+    def _put(self, /, item: _RichComparableT) -> None:
         heappush(self.__data, item)
 
     @override
-    def _get(self) -> _RichComparableT:
+    def _get(self, /) -> _RichComparableT:
         return heappop(self.__data)
 
     @override
-    def _peekable(self) -> bool:
+    def _peekable(self, /) -> bool:
         return True
 
     @override
-    def _peek(self) -> _RichComparableT:
+    def _peek(self, /) -> _RichComparableT:
         return self.__data[0]
 
     @override
-    def _clearable(self) -> bool:
+    def _clearable(self, /) -> bool:
         return True
 
     @override
-    def _clear(self) -> None:
+    def _clear(self, /) -> None:
         self.__data.clear()

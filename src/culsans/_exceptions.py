@@ -35,12 +35,12 @@ else:
 
     class SyncQueueShutDown(Exception):
         """
-        A backport of :class:`queue.ShutDown`.
+        A backport of :exc:`queue.ShutDown`.
         """
 
     class AsyncQueueShutDown(Exception):
         """
-        A backport of :class:`asyncio.QueueShutDown`.
+        A backport of :exc:`asyncio.QueueShutDown`.
         """
 
 

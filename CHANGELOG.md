@@ -27,16 +27,26 @@ Commit messages are consistent with
   and `culsans.AsyncQueueProxy`. Added to reduce code duplication, but can also
   be used separately for other purposes (such as checking that an object is an
   instance of either proxy type).
+- `culsans.GreenQueue`, `culsans.GreenQueueProxy`, and methods prefixed with
+  `green_`, which make the interfaces `aiologic`-like. They are equivalent to
+  their "sync" alternatives and are preferred for new uses.
+- `blocking` parameter wherever there is `block` parameter, as its alias. This
+  change complements the previous one. Note that none of these parameters have
+  been added to async def methods, as this would complicate the implementation,
+  so there is still no full compatibility with `aiologic` queues (the
+  parameters will be added in the future along with async timeouts).
+- `sizer` parameter, corresponding `isize()` public methods, and `_isize`
+  protected attribute/method (for overriding). Allows to specify the size for
+  each queue item, which affects the put methods. Solves
+  [#9](https://github.com/x42005e1f/culsans/issues/9).
 - `clearable()` methods and related `culsans.Queue._clearable()` protected
   method (for overriding) analogous to those for peek methods, making
   implementation of the `clear()` method optional. Along with this, the
   `clear()` method is now also used in the implementation of the `shutdown()`
   method, when available.
-- `sizer` parameter, corresponding `isize()` public methods, and `_isize`
-  protected attribute/method (for overriding). Allows to specify the size for
-  each queue item, which affects the put methods. Solves
-  [#9](https://github.com/x42005e1f/culsans/issues/9).
 - `size` property, which returns the cumulative size of items in the queue.
+- `green_proxy`/`async_proxy` properties as a more generic alternative to
+  `sync_q`/`async_q`.
 - The proxies can now be weakly referenced. Previously, this was disallowed due
   to their limited lifetime (since the corresponding properties return new
   objects on each access). This is now allowed for cases where a proxy is used
@@ -48,6 +58,10 @@ Commit messages are consistent with
 
 ### Changed
 
+- The queues now override `__len__()` and `__bool__()`, allowing `len(queue)`
+  and `bool(queue)` to be used in the same sense as for collections. And while
+  this change is not conceptually incompatible, in fact it breaks the
+  not-so-good pattern `if self.queue:  # self.queue is not None`.
 - The `maxsize` property is now defined as the maximum cumulative size of queue
   items rather than the maximum queue length. This allows arbitrary queue item
   sizes to be supported, but may require existing code to be modified to work
