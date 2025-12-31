@@ -21,6 +21,7 @@ __version_tuple__: tuple[int | str, ...]  # dynamic
 
 from ._groupers import (
     Grouper as Grouper,
+    RWLock as RWLock,
 )
 from ._queues import (
     AsyncQueue as AsyncQueue,

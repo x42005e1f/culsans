@@ -36,6 +36,11 @@ if TYPE_CHECKING:
     else:
         from typing import Callable
 
+    if sys.version_info >= (3, 11):  # a caching bug fix
+        from typing import Literal
+    else:  # typing-extensions>=4.6.0
+        from typing_extensions import Literal
+
     if sys.version_info >= (3, 11):  # PEP 673
         from typing import Self
     else:  # typing-extensions>=4.0.0
@@ -47,6 +52,7 @@ class Grouper:
         "__weakref__",
         "_default_group",
         "_default_group_factory",
+        "_default_group_mode",
         "_groups",
         "_groups_proxies",
         "_groups_proxy",
@@ -64,6 +70,7 @@ class Grouper:
 
     _default_group: Hashable | MissingType
     _default_group_factory: Callable[[], Hashable] | MissingType
+    _default_group_mode: Literal["exclusive", "shared"]
 
     _groups: dict[Hashable, dict[tuple[str, int], int]]
     _groups_proxies: dict[Hashable, MappingProxyType[tuple[str, int], int]]
@@ -79,7 +86,10 @@ class Grouper:
 
     _mutex: ThreadRLock
 
-    _waiters: OrderedDict[Hashable, dict[tuple[str, int], tuple[Event, int]]]
+    _waiters: OrderedDict[
+        tuple[Hashable, Literal["exclusive", "shared"]],
+        dict[tuple[str, int], tuple[Event, int]],
+    ]
     _waiters_counter: list[None]
 
     _wrapped: Grouper | None
@@ -95,6 +105,7 @@ class Grouper:
         *,
         default_group: Hashable | MissingType = MISSING,
         default_group_factory: Callable[[], Hashable] | MissingType = MISSING,
+        default_group_mode: Literal["exclusive", "shared"] = "shared",
     ) -> None:
         if (
             default_group is not MISSING
@@ -108,6 +119,7 @@ class Grouper:
 
         self._default_group = default_group
         self._default_group_factory = default_group_factory
+        self._default_group_mode = default_group_mode
 
         if isinstance(wrapped_or_predicate, Grouper):
             wrapped = wrapped_or_predicate
@@ -134,7 +146,7 @@ class Grouper:
 
             if not hasattr(self, "_predicate"):
                 if predicate is DEFAULT:
-                    self._predicate = self.__phase_fair
+                    self._predicate = self.__predicate
                 else:
                     self._predicate = predicate
 
@@ -254,6 +266,8 @@ class Grouper:
         *,
         blocking: bool = True,
     ) -> bool:
+        group_mode = self._default_group_mode
+
         ident = current_async_task_ident()
 
         if ident in self._owners and group in self._owners[ident]:
@@ -297,7 +311,8 @@ class Grouper:
             if not blocking:
                 return False
 
-            events = self._waiters.setdefault(group, {})
+            key = (group, group_mode)
+            events = self._waiters.setdefault(key, {})
             events[ident] = (
                 event := create_async_event(),
                 count,
@@ -320,8 +335,8 @@ class Grouper:
 
                         del events[ident]
 
-                        if not events and self._waiters.get(group) is events:
-                            del self._waiters[group]
+                        if not events and self._waiters.get(key) is events:
+                            del self._waiters[key]
                     else:
                         del self._owners[ident][group]
                         del self._groups[group][ident]
@@ -347,6 +362,8 @@ class Grouper:
         blocking: bool = True,
         timeout: float | None = None,
     ) -> bool:
+        group_mode = self._default_group_mode
+
         ident = current_green_task_ident()
 
         if ident in self._owners and group in self._owners[ident]:
@@ -390,7 +407,8 @@ class Grouper:
             if not blocking:
                 return False
 
-            events = self._waiters.setdefault(group, {})
+            key = (group, group_mode)
+            events = self._waiters.setdefault(key, {})
             events[ident] = (
                 event := create_green_event(),
                 count,
@@ -413,8 +431,8 @@ class Grouper:
 
                         del events[ident]
 
-                        if not events and self._waiters.get(group) is events:
-                            del self._waiters[group]
+                        if not events and self._waiters.get(key) is events:
+                            del self._waiters[key]
                     else:
                         del self._owners[ident][group]
                         del self._groups[group][ident]
@@ -525,19 +543,44 @@ class Grouper:
 
     def _release(self, /) -> None:
         while self._waiters:
-            group, events = self._waiters.popitem(last=False)
+            key, events = self._waiters.popitem(last=False)
+            group, group_mode = key
 
             if not self._predicate(self, group, None):
-                self._waiters[group] = events
-                self._waiters.move_to_end(group, last=False)
+                self._waiters[key] = events
+                self._waiters.move_to_end(key, last=False)
 
                 break
 
-            tasks = {
-                ident: count
-                for ident, (event, count) in events.items()
-                if event.set() and not self._waiters_counter.pop()
-            }
+            if group_mode == "exclusive":
+                tasks = {}
+                to_skip = set()
+
+                for ident, (event, count) in events.items():
+                    to_skip.add(ident)
+
+                    if event.set() and not self._waiters_counter.pop():
+                        tasks[ident] = count
+
+                        break
+
+                events = {
+                    ident: info
+                    for ident, info in events.items()
+                    if ident not in to_skip
+                }
+
+                if events:
+                    self._waiters[key] = events
+            elif group_mode == "shared":
+                tasks = {
+                    ident: count
+                    for ident, (event, count) in events.items()
+                    if event.set() and not self._waiters_counter.pop()
+                }
+            else:
+                msg = "unknown group mode"
+                raise RuntimeError(msg)
 
             if tasks:
                 for ident, count in tasks.items():
@@ -597,7 +640,7 @@ class Grouper:
         return bool(self._owners)
 
     @staticmethod
-    def __phase_fair(
+    def __predicate(  # phase-fair
         grouper: Grouper,
         group: Hashable,
         ident: tuple[str, int] | None,
@@ -646,3 +689,66 @@ class Grouper:
     @property
     def wrapped(self, /) -> Grouper | None:
         return self._wrapped
+
+
+class RWLock(Grouper):
+    __slots__ = (
+        "_reading",
+        "_writing",
+    )
+
+    def __init__(self, /) -> None:
+        super().__init__(self.__predicate, default_group=None)
+
+        self._reading = Grouper(
+            self,
+            default_group="reading",
+            default_group_mode="shared",
+        )
+        self._writing = Grouper(
+            self,
+            default_group="writing",
+            default_group_mode="exclusive",
+        )
+
+    @staticmethod
+    def __predicate(
+        grouper: Grouper,
+        group: Hashable,
+        ident: tuple[str, int] | None,
+    ) -> bool:
+        # direct access
+        if group is None:
+            msg = (
+                "cannot acquire without a group;"
+                " use the 'reading' or 'writing' property instead"
+            )
+            raise RuntimeError(msg)
+
+        # first access
+        if not grouper.groups:
+            return True
+
+        # inner reading on writing
+        if group == "reading" and ident in grouper.owners:
+            return True
+
+        # inner writing on reading
+        if group == "writing" and ident in grouper.owners:
+            msg = "cannot upgrade from reading to writing"
+            raise RuntimeError(msg)
+
+        # reading without writers
+        return (
+            group == "reading"
+            and group in grouper.groups
+            and not grouper.waiting
+        )
+
+    @property
+    def reading(self, /) -> Grouper:
+        return self._reading
+
+    @property
+    def writing(self, /) -> Grouper:
+        return self._writing

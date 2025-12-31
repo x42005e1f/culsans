@@ -27,6 +27,9 @@ Commit messages are consistent with
   primitive with phase-fair priority policy by default. See
   [x42005e1f/aiologic#19](https://github.com/x42005e1f/aiologic/issues/19) for
   details.
+- `culsans.RWLock` (initial implementation) as a readers-writer lock that is
+  both phase-fair and reentrant. It is currently defined as a subclass of
+  `culsans.Grouper`, but this may change in the future.
 - `culsans.BaseQueueProxy` as a common superclass for `culsans.SyncQueueProxy`
   and `culsans.AsyncQueueProxy`. Added to reduce code duplication, but can also
   be used separately for other purposes (such as checking that an object is an

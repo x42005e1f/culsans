@@ -5,4 +5,5 @@
 
 from ._types import (
     Grouper as Grouper,
+    RWLock as RWLock,
 )
