@@ -16,8 +16,8 @@ and this project adheres to
 Commit messages are consistent with
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-[Unreleased]
-------------
+[0.11.0] - 2025-12-31
+---------------------
 
 ### Added
 
@@ -322,7 +322,7 @@ Commit messages are consistent with
   than `janus.Queue` in multi-threaded tests, simplifies usage, and expands the
   number of supported use cases (multiple event loops, `trio` support, etc.).
 
-[unreleased]: https://github.com/x42005e1f/culsans/compare/0.10.0...HEAD
+[0.11.0]: https://github.com/x42005e1f/culsans/compare/0.10.0...0.11.0
 [0.10.0]: https://github.com/x42005e1f/culsans/compare/0.9.0...0.10.0
 [0.9.0]: https://github.com/x42005e1f/culsans/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/x42005e1f/culsans/compare/0.7.1...0.8.0
