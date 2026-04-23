@@ -14,6 +14,19 @@ Third-party distributions
 
 Various third-parties provide culsans for their environments.
 
+Anaconda.org
+^^^^^^^^^^^^
+
+culsans is available via the `conda-forge community channel <https://
+anaconda.org/conda-forge/culsans>`__:
+
+.. code:: console
+
+    conda install conda-forge::culsans
+
+You can also use the `mamba <https://github.com/mamba-org/mamba>`__ package
+manager instead of conda.
+
 piwheels
 ^^^^^^^^
 
