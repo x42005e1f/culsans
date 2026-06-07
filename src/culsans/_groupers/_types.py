@@ -48,6 +48,12 @@ if TYPE_CHECKING:
 
 
 class Grouper:
+    """
+    A reentrant higher-level primitive that synchronizes tasks by groups.
+
+    Can be used via the ``async with``/``with`` statements.
+    """
+
     __slots__ = (
         "__weakref__",
         "_default_group",
@@ -107,6 +113,32 @@ class Grouper:
         default_group_factory: Callable[[], Hashable] | MissingType = MISSING,
         default_group_mode: Literal["exclusive", "shared"] = "shared",
     ) -> None:
+        """
+        Create a grouper object with the given parameters.
+
+        Args:
+          wrapped_or_predicate:
+            If another grouper object is passed, it will create a proxy/wrapper
+            that uses the same underlying structures but with different default
+            parameters (see below). Otherwise, the passed object is treated as
+            a predicate (see the :attr:`predicate` property).
+          default_group:
+            See the :attr:`default_group` property.
+          default_group_factory:
+            See the :attr:`default_group_factory` property.
+          default_group_mode:
+            If ``"exclusive"`` is passed, only one task from the group will be
+            woken up on release. Otherwise, if ``"shared"`` is passed, all
+            tasks from the group will be woken up. It must be consistent with
+            the predicate.
+
+        Example:
+          >>> import threading
+          >>> thread_rlock = Grouper(default_group_factory=threading.get_ident)
+          >>> async with thread_rlock:
+          ...     ...  # exclusive for threads; shared for the thread's tasks
+        """
+
         if (
             default_group is not MISSING
             and default_group_factory is not MISSING
@@ -166,6 +198,13 @@ class Grouper:
             self._wrapped = None
 
     def __bool__(self, /) -> bool:
+        """
+        Return :data:`True` if the grouper is used by any task, :data:`False`
+        otherwise.
+
+        Used by the standard :ref:`truth testing procedure <truth>`.
+        """
+
         return bool(self._owners)
 
     async def __aenter__(self, /) -> Self:
@@ -203,6 +242,22 @@ class Grouper:
         *,
         blocking: bool = True,
     ) -> bool:
+        """
+        Acquire the grouper by the current async task on behalf of the default
+        group.
+
+        If no default group was passed to the constructor, the task identifier
+        is used instead.
+
+        Args:
+          count:
+            The recursion level delta (equivalent to the same number of calls).
+          blocking:
+            Unless set to :data:`False`, the method will block if necessary
+            until it succeeds in acquiring the grouper. Otherwise, it will
+            return :data:`False` if it fails to do so immediately.
+        """
+
         if self._default_group_factory is not MISSING:
             group = self._default_group_factory()
         elif self._default_group is not MISSING:
@@ -224,6 +279,26 @@ class Grouper:
         blocking: bool = True,
         timeout: float | None = None,
     ) -> bool:
+        """
+        Acquire the grouper by the current green task on behalf of the default
+        group.
+
+        If no default group was passed to the constructor, the task identifier
+        is used instead.
+
+        Args:
+          count:
+            The recursion level delta (equivalent to the same number of calls).
+          blocking:
+            Unless set to :data:`False`, the method will block if necessary
+            until it succeeds in acquiring the grouper. Otherwise,
+            ``timeout=0`` is implied.
+          timeout:
+            If set to a non-negative number, the method will block at most
+            *timeout* seconds and return :data:`False` if it fails to acquire
+            the grouper within that time.
+        """
+
         if self._default_group_factory is not MISSING:
             group = self._default_group_factory()
         elif self._default_group is not MISSING:
@@ -239,6 +314,18 @@ class Grouper:
         )
 
     def async_release(self, /, count: int = 1) -> None:
+        """
+        Release the grouper by the current async task on behalf of the default
+        group.
+
+        If no default group was passed to the constructor, the task identifier
+        is used instead.
+
+        Args:
+          count:
+            The recursion level delta (equivalent to the same number of calls).
+        """
+
         if self._default_group_factory is not MISSING:
             group = self._default_group_factory()
         elif self._default_group is not MISSING:
@@ -249,6 +336,18 @@ class Grouper:
         self.async_release_on_behalf_of(group, count)
 
     def green_release(self, /, count: int = 1) -> None:
+        """
+        Release the grouper by the current green task on behalf of the default
+        group.
+
+        If no default group was passed to the constructor, the task identifier
+        is used instead.
+
+        Args:
+          count:
+            The recursion level delta (equivalent to the same number of calls).
+        """
+
         if self._default_group_factory is not MISSING:
             group = self._default_group_factory()
         elif self._default_group is not MISSING:
@@ -266,6 +365,18 @@ class Grouper:
         *,
         blocking: bool = True,
     ) -> bool:
+        """
+        Acquire the grouper by the current async task on behalf of the *group*.
+
+        Args:
+          count:
+            The recursion level delta (equivalent to the same number of calls).
+          blocking:
+            Unless set to :data:`False`, the method will block if necessary
+            until it succeeds in acquiring the grouper. Otherwise, it will
+            return :data:`False` if it fails to do so immediately.
+        """
+
         group_mode = self._default_group_mode
 
         ident = current_async_task_ident()
@@ -362,6 +473,22 @@ class Grouper:
         blocking: bool = True,
         timeout: float | None = None,
     ) -> bool:
+        """
+        Acquire the grouper by the current green task on behalf of the *group*.
+
+        Args:
+          count:
+            The recursion level delta (equivalent to the same number of calls).
+          blocking:
+            Unless set to :data:`False`, the method will block if necessary
+            until it succeeds in acquiring the grouper. Otherwise,
+            ``timeout=0`` is implied.
+          timeout:
+            If set to a non-negative number, the method will block at most
+            *timeout* seconds and return :data:`False` if it fails to acquire
+            the grouper within that time.
+        """
+
         group_mode = self._default_group_mode
 
         ident = current_green_task_ident()
@@ -455,6 +582,14 @@ class Grouper:
         group: Hashable,
         count: int = 1,
     ) -> None:
+        """
+        Release the grouper by the current async task on behalf of the *group*.
+
+        Args:
+          count:
+            The recursion level delta (equivalent to the same number of calls).
+        """
+
         if count < 1:
             msg = "'count' must be >= 1"
             raise ValueError(msg)
@@ -501,6 +636,14 @@ class Grouper:
         group: Hashable,
         count: int = 1,
     ) -> None:
+        """
+        Release the grouper by the current green task on behalf of the *group*.
+
+        Args:
+          count:
+            The recursion level delta (equivalent to the same number of calls).
+        """
+
         if count < 1:
             msg = "'count' must be >= 1"
             raise ValueError(msg)
@@ -599,6 +742,15 @@ class Grouper:
                 break
 
     def async_owned(self, /, group: Hashable | MissingType = MISSING) -> bool:
+        """
+        Return :data:`True` if the current async task owns the grouper,
+        :data:`False` otherwise.
+
+        Args:
+          group:
+            If specified, then only on behalf of the *group*.
+        """
+
         ident = current_async_task_ident()
 
         if group is MISSING:
@@ -607,6 +759,15 @@ class Grouper:
         return ident in self._owners and group in self._owners[ident]
 
     def green_owned(self, /, group: Hashable | MissingType = MISSING) -> bool:
+        """
+        Return :data:`True` if the current green task owns the grouper,
+        :data:`False` otherwise.
+
+        Args:
+          group:
+            If specified, then only on behalf of the *group*.
+        """
+
         ident = current_green_task_ident()
 
         if group is MISSING:
@@ -615,6 +776,15 @@ class Grouper:
         return ident in self._owners and group in self._owners[ident]
 
     def async_count(self, /, group: Hashable | MissingType = MISSING) -> int:
+        """
+        Return the recursion level of the current async task.
+
+        Args:
+          group:
+            If specified, then only for the *group*. Otherwise, the sum across
+            all groups to which the task belongs.
+        """
+
         ident = current_async_task_ident()
 
         if ident in self._owners:
@@ -626,6 +796,15 @@ class Grouper:
         return 0
 
     def green_count(self, /, group: Hashable | MissingType = MISSING) -> int:
+        """
+        Return the recursion level of the current green task.
+
+        Args:
+          group:
+            If specified, then only for the *group*. Otherwise, the sum across
+            all groups to which the task belongs.
+        """
+
         ident = current_green_task_ident()
 
         if ident in self._owners:
@@ -637,6 +816,11 @@ class Grouper:
         return 0
 
     def locked(self, /) -> bool:
+        """
+        Return :data:`True` if the grouper is used by any task, :data:`False`
+        otherwise.
+        """
+
         return bool(self._owners)
 
     @staticmethod
@@ -654,14 +838,52 @@ class Grouper:
         self,
         /,
     ) -> Callable[[Grouper, Hashable, tuple[str, int] | None], bool]:
+        """
+        A callable object that determines whether a given group (or a task in a
+        given group) can acquire the grouper at a specific point in time.
+
+        On acquire, it is called for the current task if it is not yet a member
+        of the desired group (otherwise, access is reentrant and the call does
+        not occur). It is called even when the current task is a member of some
+        other group (but not the desired one). The grouper, the group, and the
+        task identifier are passed.
+
+        On release, it is called for the next group in the wait queue (if any)
+        when the last task exits the current group. The grouper, the group, and
+        :data:`None` (instead of the task identifier) are passed.
+
+        Called only when the underlying lock is acquired, and must return
+        :data:`True` if access is granted, :data:`False` otherwise. For
+        acquire, this determines whether the task must acquire the grouper
+        immediately or join the wait queue as part of the desired group. For
+        release, this determines whether tasks from the next group in the wait
+        queue must wake up (according to the chosen mode) or remain waiting.
+
+        If no predicate was passed to the constructor, then the default
+        predicate is used, which operates according to the phase-fair policy
+        for reading: the grouper can be acquired on behalf of the desired group
+        if there are no owners, or if the desired group is already the owner
+        and there are no other waiting groups. This can be used, for example,
+        to synchronize asynchronous tasks at the thread level (group = thread
+        identifier).
+        """
+
         return self._predicate
 
     @property
     def default_group(self, /) -> Hashable | MissingType:
+        """
+        The default group used by the acquire/release methods.
+        """
+
         return self._default_group
 
     @property
     def default_group_factory(self, /) -> Callable[[], Hashable] | MissingType:
+        """
+        The default group factory used by the acquire/release methods.
+        """
+
         return self._default_group_factory
 
     @property
@@ -669,6 +891,13 @@ class Grouper:
         self,
         /,
     ) -> MappingProxyType[Hashable, MappingProxyType[tuple[str, int], int]]:
+        """
+        The read-only proxy of the dictionary that maps groups to their
+        respective information regarding which tasks the group consists of and
+        their recursion level in it. Contains only those groups that own the
+        grouper. Updated automatically when the current state changes.
+        """
+
         return self._groups_proxy
 
     @property
@@ -676,22 +905,52 @@ class Grouper:
         self,
         /,
     ) -> MappingProxyType[tuple[str, int], MappingProxyType[Hashable, int]]:
+        """
+        The read-only proxy of the dictionary that maps tasks' identifiers to
+        their respective information regarding which groups the task belongs to
+        and its recursion level in each group. Contains identifiers only of
+        those tasks that own the grouper. Updated automatically when the
+        current state changes.
+        """
+
         return self._owners_proxy
 
     @property
     def mutex(self, /) -> ThreadRLock:
+        """
+        The underlying lock.
+        """
+
         return self._mutex
 
     @property
     def waiting(self, /) -> int:
+        """
+        The current number of tasks waiting to own.
+        """
+
         return len(self._waiters_counter)
 
     @property
     def wrapped(self, /) -> Grouper | None:
+        """
+        The parent of this proxy/wrapper, if any.
+        """
+
         return self._wrapped
 
 
 class RWLock(Grouper):
+    """
+    A readers-writer lock that is:
+
+    * phase-fair (read `the paper <https://www.cs.unc.edu/~anderson/papers/
+      ecrts09b.pdf>`__)
+    * reentrant (like :class:`threading.RLock`)
+
+    See the :attr:`reading` and :attr:`writing` properties.
+    """
+
     __slots__ = (
         "_reading",
         "_writing",
@@ -747,8 +1006,52 @@ class RWLock(Grouper):
 
     @property
     def reading(self, /) -> Grouper:
+        """
+        The proxy/wrapper for reading.
+
+        Example:
+          >>> lock = RWLock()
+          >>> async with lock.reading:
+          ...     ...  # read
+          ...     async with lock.reading:
+          ...         ...  # nested read
+          ...     ...  # read
+
+        Example:
+          >>> lock = RWLock()
+          >>> with lock.reading:
+          ...     ...  # read
+          ...     with lock.reading:
+          ...         ...  # nested read
+          ...     ...  # read
+        """
+
         return self._reading
 
     @property
     def writing(self, /) -> Grouper:
+        """
+        The proxy/wrapper for writing.
+
+        Example:
+          >>> lock = RWLock()
+          >>> async with lock.writing:
+          ...     ...  # write
+          ...     async with lock.writing:
+          ...         ...  # nested write
+          ...     async with lock.reading:
+          ...         ...  # nested read
+          ...     ...  # write
+
+        Example:
+          >>> lock = RWLock()
+          >>> with lock.writing:
+          ...     ...  # write
+          ...     with lock.writing:
+          ...         ...  # nested write
+          ...     with lock.reading:
+          ...         ...  # nested read
+          ...     ...  # write
+        """
+
         return self._writing

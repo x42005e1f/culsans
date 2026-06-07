@@ -8,6 +8,9 @@ API reference
 Queues
 ------
 
+Types
++++++
+
 .. autoclass:: culsans.Queue
   :members:
   :no-inherited-members:
@@ -19,7 +22,7 @@ Queues
   :no-inherited-members:
 
 Proxies
--------
++++++++
 
 .. autoclass:: culsans.BaseQueueProxy
   :members:
@@ -35,7 +38,7 @@ Proxies
   :no-inherited-members:
 
 Protocols
----------
++++++++++
 
 .. autoclass:: culsans.BaseQueue
   :members:
@@ -54,7 +57,7 @@ Protocols
   :no-inherited-members:
 
 Exceptions
-----------
+++++++++++
 
 .. culsans.QueueEmpty-start-marker
 .. py:exception:: culsans.QueueEmpty
@@ -149,3 +152,16 @@ Exceptions
   Exception raised when peek/clear is called on a :class:`~culsans.Queue`
   object which is not peekable/clearable.
 .. culsans.UnsupportedOperation-end-marker
+
+Groupers
+--------
+
+Types
++++++
+
+.. autoclass:: culsans.Grouper
+  :members:
+  :no-inherited-members:
+.. autoclass:: culsans.RWLock
+  :members:
+  :no-inherited-members:
