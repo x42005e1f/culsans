@@ -49,6 +49,5 @@ Compatibility
   :caption: Links
   :hidden:
 
-  DeepWiki <https://deepwiki.com/x42005e1f/culsans>
   GitHub <https://github.com/x42005e1f/culsans>
   PyPI <https://pypi.org/project/culsans/>
