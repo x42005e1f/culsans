@@ -33,11 +33,11 @@ class _TestQueueBase:
         assert queue.async_q.maxsize == 0
 
         with pytest.raises(AttributeError):
-            queue.nonexistent_attribute  # noqa: B018
+            queue.nonexistent_attribute  # ruff: ignore[useless-expression]
         with pytest.raises(AttributeError):
-            queue.sync_q.nonexistent_attribute  # noqa: B018
+            queue.sync_q.nonexistent_attribute  # ruff: ignore[useless-expression]
         with pytest.raises(AttributeError):
-            queue.async_q.nonexistent_attribute  # noqa: B018
+            queue.async_q.nonexistent_attribute  # ruff: ignore[useless-expression]
 
     def test_setters(self):
         queue = self.factory()

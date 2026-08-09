@@ -1131,7 +1131,7 @@ class LifoQueue(Queue[_T]):
     first (:abbr:`LIFO (last-in, first-out)`).
     """
 
-    __slots__ = ("__data",)  # noqa: PLW0244
+    __slots__ = ("__data",)  # ruff: ignore[redefined-slots-in-subclass]
 
     __data: list[_T]
 
@@ -1174,7 +1174,7 @@ class PriorityQueue(Queue[_RichComparableT]):
     (lowest first).
     """
 
-    __slots__ = ("__data",)  # noqa: PLW0244
+    __slots__ = ("__data",)  # ruff: ignore[redefined-slots-in-subclass]
 
     __data: list[_RichComparableT]
 
